@@ -23,6 +23,10 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
+    // 🔐 【访问密码设置】修改此处字符串即可更换网页访问密码
+    const ACCESS_PIN = "8888";
+    const AUTH_STORAGE_KEY = "moo_cycle_v36_auth_token";
+
     const TICKER_ORDER = ["SOXL", "SOXS", "TQQQ", "SQQQ", "QQQ", "SPY", "SOXX"];
 
     const RAW_DB = {
@@ -48,9 +52,9 @@
         nodes: { n1106: 49.04, n1118: 53.28, n1126: 42.10, n1210: 64.52, n1231: 45.80 },
         neckRatio: [1.140, 1.155], sweepRatio: [1.220, 1.268], pivotRatio: 0.968,
         intradaySeed: {
-          vwapRatio: 1.030, demandLowRatio: 0.960, demandHighRatio: 0.968,
-          microSupRatio: 1.008, majorSupLow: 1.062, majorSupHigh: 1.083,
-          pastRatios: [1.045, 0.960, 1.083, 1.048, 1.024, 1.002, 0.960, 0.985]
+          vwapRatio: 0.978, demandLowRatio: 0.960, demandHighRatio: 0.968,
+          microSupRatio: 1.015, majorSupLow: 1.048, majorSupHigh: 1.068,
+          pastRatios: [0.992, 0.915, 1.032, 0.985, 0.942, 0.895, 0.968, 0.992]
         },
         phaseDesc: "【空间抢跑超跌相】实盘较周期轨提前下杀，左脚确立，转入 W 底双脚震荡",
         ironRule: "盘前绝不在颈线位追高；冲高触及粉色猎杀区 ($52.5~$55.0) 视为诱多假针，分批清仓短线多单，等 11/26 回踩黄金右脚！"
@@ -79,7 +83,7 @@
         intradaySeed: {
           vwapRatio: 0.982, demandLowRatio: 0.925, demandHighRatio: 0.940,
           microSupRatio: 1.022, majorSupLow: 1.050, majorSupHigh: 1.075,
-          pastRatios: [0.960, 1.042, 0.922, 0.955, 0.978, 0.998, 1.040, 1.012]
+          pastRatios: [0.960, 1.042, 0.922, 0.955, 0.978, 1.045, 0.985, 0.995]
         },
         phaseDesc: "【反向镜像·空头获利回吐相】前期随SOXL闪崩暴涨透支，当前随芯片超跌反抽进入回落洗盘",
         ironRule: "镜像操作铁律：当 SOXL 反抽 $52~$54 时，SOXS 回踩 11/06~11/18 低位区为极佳右侧做空对冲买点；等 11/26 SOXL 踩稳右脚时 SOXS 必须100%清仓止盈！"
@@ -106,9 +110,9 @@
         nodes: { n1106: 88.20, n1118: 84.10, n1126: 77.80, n1210: 99.20, n1231: 85.50 },
         neckRatio: [1.095, 1.125], sweepRatio: [1.145, 1.175], pivotRatio: 0.968,
         intradaySeed: {
-          vwapRatio: 1.022, demandLowRatio: 0.972, demandHighRatio: 0.980,
-          microSupRatio: 1.010, majorSupLow: 1.048, majorSupHigh: 1.065,
-          pastRatios: [1.032, 0.972, 1.065, 1.035, 1.018, 1.004, 0.972, 0.990]
+          vwapRatio: 0.988, demandLowRatio: 0.972, demandHighRatio: 0.980,
+          microSupRatio: 1.010, majorSupLow: 1.042, majorSupHigh: 1.060,
+          pastRatios: [1.012, 0.965, 1.035, 1.005, 0.985, 0.958, 0.982, 0.995]
         },
         phaseDesc: "【空间抢跑超跌相】跟随母体 QQQ 提前触及月底黄金坑水位，3x损耗下转入箱体双底磨盘",
         ironRule: "短线反抽第一层颈线阻力区先减仓 50%，防范 11 月中旬大科技二次回踩 11/26 黄金坑右脚，月底踩稳后满仓博弈 12 月跨年主升浪！"
@@ -137,7 +141,7 @@
         intradaySeed: {
           vwapRatio: 0.985, demandLowRatio: 0.942, demandHighRatio: 0.955,
           microSupRatio: 1.015, majorSupLow: 1.038, majorSupHigh: 1.055,
-          pastRatios: [0.970, 1.028, 0.940, 0.968, 0.985, 0.998, 1.028, 1.008]
+          pastRatios: [0.970, 1.028, 0.940, 0.968, 0.985, 1.032, 0.995, 0.998]
         },
         phaseDesc: "【反向镜像·纳指空头震荡相】随 QQQ 短线超跌反抽而回落蓄势，等待 11 月中下旬二次探底脉冲",
         ironRule: "当 QQQ 反抽 $672~$676 颈线受阻时，SQQQ 回踩低位支撑区可短线介入对冲；11/26 纳指双底右脚成型当日必须清仓 SQQQ！"
@@ -164,9 +168,9 @@
         nodes: { n1106: 676.33, n1118: 663.97, n1126: 648.09, n1210: 709.90, n1231: 670.20 },
         neckRatio: [1.0388, 1.0514], sweepRatio: [1.0558, 1.0619], pivotRatio: 0.988,
         intradaySeed: {
-          vwapRatio: 1.009, demandLowRatio: 0.991, demandHighRatio: 0.994,
+          vwapRatio: 0.996, demandLowRatio: 0.991, demandHighRatio: 0.994,
           microSupRatio: 1.004, majorSupLow: 1.018, majorSupHigh: 1.024,
-          pastRatios: [1.012, 0.991, 1.024, 1.014, 1.008, 1.002, 0.991, 0.997]
+          pastRatios: [1.005, 0.988, 1.012, 1.002, 0.995, 0.986, 0.996, 0.999]
         },
         phaseDesc: "【空间抢跑超跌相】实盘较周期轨提前下杀 (-8.0%)，空间已触及月底黄金坑水位 ($648)",
         ironRule: "短线反抽 $672~$680 顶底互换颈线后将遇阻回落，11月中旬跟随大科技二次回踩 $648.1 构筑双底右脚！"
@@ -193,9 +197,9 @@
         nodes: { n1106: 735.49, n1118: 720.71, n1126: 705.93, n1210: 756.00, n1231: 726.50 },
         neckRatio: [1.0114, 1.0237], sweepRatio: [1.0280, 1.0339], pivotRatio: 0.988,
         intradaySeed: {
-          vwapRatio: 1.005, demandLowRatio: 0.993, demandHighRatio: 0.996,
+          vwapRatio: 0.998, demandLowRatio: 0.993, demandHighRatio: 0.996,
           microSupRatio: 1.003, majorSupLow: 1.011, majorSupHigh: 1.016,
-          pastRatios: [1.008, 0.993, 1.016, 1.009, 1.004, 1.001, 0.993, 0.998]
+          pastRatios: [1.004, 0.992, 1.008, 1.002, 0.998, 0.990, 0.997, 0.999]
         },
         phaseDesc: "【温和阶梯回撤相】实盘仅提前下杀 (-2.5%)，距离 11/26 黄金坑 ($705.93) 仍有 -3.7% 补跌空间",
         ironRule: "警惕跨板块轮动补跌！当 SOXL/QQQ 在底部横盘筑右脚时，SPY 将被传统蓝筹补跌拖累阶梯下行至 $705.93！"
@@ -222,9 +226,9 @@
         nodes: { n1106: 134.83, n1118: 137.73, n1126: 128.33, n1210: 141.93, n1231: 132.83 },
         neckRatio: [1.042, 1.052], sweepRatio: [1.065, 1.080], pivotRatio: 0.988,
         intradaySeed: {
-          vwapRatio: 1.013, demandLowRatio: 0.988, demandHighRatio: 0.992,
-          microSupRatio: 1.004, majorSupLow: 1.024, majorSupHigh: 1.031,
-          pastRatios: [1.017, 0.988, 1.031, 1.018, 1.010, 1.003, 0.988, 0.996]
+          vwapRatio: 0.992, demandLowRatio: 0.985, demandHighRatio: 0.990,
+          microSupRatio: 1.005, majorSupLow: 1.022, majorSupHigh: 1.031,
+          pastRatios: [1.002, 0.978, 1.015, 0.998, 0.988, 0.972, 0.992, 0.998]
         },
         phaseDesc: "【空间一步到位相】无 3 倍杠杆损耗，目前已直接触及 11/26 理论黄金坑 ($128.0) 区域",
         ironRule: "1倍母体无杠杆磨损，11/26 右脚 ($128.33) 将显著高于本周低点，12月跨年主升浪修复率远超 SOXL！"
@@ -232,18 +236,25 @@
     };
 
     function App() {
+      // 密码门禁鉴权状态
+      const [isAuthed, setIsAuthed] = useState(() => {
+        try { return localStorage.getItem(AUTH_STORAGE_KEY) === ACCESS_PIN; } catch (e) { return false; }
+      });
+      const [pinInput, setPinInput] = useState("");
+      const [pinError, setPinError] = useState(false);
+
       const [ticker, setTicker] = useState("SOXL");
       const [prices, setPrices] = useState({
-        SOXL: 44.75, SOXS: 27.10, TQQQ: 80.50, SQQQ: 18.80, QQQ: 653.90, SPY: 736.57, SOXX: 134.22
+        SOXL: 46.22, SOXS: 25.80, TQQQ: 81.60, SQQQ: 18.40, QQQ: 656.50, SPY: 737.80, SOXX: 136.38
       });
       const [prevCloses, setPrevCloses] = useState({
         SOXL: 40.87, SOXS: 28.50, TQQQ: 78.50, SQQQ: 19.20, QQQ: 647.05, SPY: 733.00, SOXX: 127.50
       });
       const [isLive, setIsLive] = useState(true);
-      const [liveStatus, setLiveStatus] = useState("OpenD 实时同步中");
+      const [liveStatus, setLiveStatus] = useState("正在连接实时行情源...");
       const [viewMode, setViewMode] = useState("both");
       const [intraScenario, setIntraScenario] = useState("A");
-      const [cleanShot, setCleanShot] = useState(false); // 群聊纯净截图模式
+      const [cleanShot, setCleanShot] = useState(false);
       const [copied, setCopied] = useState(false);
       const [nowClock, setNowClock] = useState(new Date());
 
@@ -252,32 +263,102 @@
         return () => clearInterval(t);
       }, []);
 
+      // 双模实时行情引擎：优先探测本地 OpenD -> 若 Mac 关机或处于云端则自动调用公网免费美股 API
       useEffect(() => {
+        if (!isAuthed) return;
         if (!isLive) {
-          setLiveStatus("手动沙盘模式");
+          setLiveStatus("手动沙盘推演模式");
           return;
         }
-        const poll = async () => {
-          try {
-            const res = await fetch("./live_price.json?t=" + Date.now());
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.prices) {
-                setPrices(prev => ({ ...prev, ...data.prices }));
-                if (data.prev_close) {
-                  setPrevCloses(prev => ({ ...prev, ...data.prev_close }));
+
+        let isMounted = true;
+
+        const syncQuotes = async () => {
+          // 1. 若在本地 localhost 运行，优先尝试读取本地 Moomoo OpenD 毫秒级快照
+          if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+            try {
+              const localRes = await fetch("./live_price.json?t=" + Date.now(), { cache: "no-store" });
+              if (localRes.ok) {
+                const data = await localRes.json();
+                if (data && data.prices && isMounted) {
+                  setPrices(prev => ({ ...prev, ...data.prices }));
+                  if (data.prev_close) setPrevCloses(prev => ({ ...prev, ...data.prev_close }));
+                  setLiveStatus(`OpenD 本地实时 (${data.ts})`);
+                  return;
                 }
-                setLiveStatus(`OpenD 实时 (${data.ts})`);
               }
+            } catch (e) {}
+          }
+
+          // 2. 公网云端无服务器实时行情通道（彻底脱离 Mac 电脑，支持盘前/正盘/盘后）
+          try {
+            const newP = {};
+            const newPrev = {};
+            await Promise.all(TICKER_ORDER.map(async (sym) => {
+              const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1m&range=1d&includePrePost=true`;
+              const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+              ];
+              for (const pUrl of proxies) {
+                try {
+                  const r = await fetch(pUrl);
+                  if (!r.ok) continue;
+                  const j = await r.json();
+                  const meta = j?.chart?.result?.[0]?.meta;
+                  const quoteIndicators = j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+                  if (meta) {
+                    let latest = meta.regularMarketPrice;
+                    if (Array.isArray(quoteIndicators)) {
+                      for (let k = quoteIndicators.length - 1; k >= 0; k--) {
+                        if (quoteIndicators[k] !== null && quoteIndicators[k] > 0) {
+                          latest = quoteIndicators[k];
+                          break;
+                        }
+                      }
+                    }
+                    if (latest && latest > 0) newP[sym] = parseFloat(latest.toFixed(2));
+                    if (meta.chartPreviousClose && meta.chartPreviousClose > 0) {
+                      newPrev[sym] = parseFloat(meta.chartPreviousClose.toFixed(2));
+                    }
+                    break;
+                  }
+                } catch (innerErr) {}
+              }
+            }));
+
+            if (Object.keys(newP).length > 0 && isMounted) {
+              setPrices(prev => ({ ...prev, ...newP }));
+              if (Object.keys(newPrev).length > 0) setPrevCloses(prev => ({ ...prev, ...newPrev }));
+              const ts = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+              setLiveStatus(`云端公网实时 (${ts})`);
             }
-          } catch (e) {
-            setLiveStatus("云端/离线模拟模式");
+          } catch (err) {
+            if (isMounted) setLiveStatus("云端信号重连中...");
           }
         };
-        poll();
-        const id = setInterval(poll, 2000);
-        return () => clearInterval(id);
-      }, [isLive]);
+
+        syncQuotes();
+        const id = setInterval(syncQuotes, 8000);
+        return () => { isMounted = false; clearInterval(id); };
+      }, [isLive, isAuthed]);
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        if (pinInput.trim() === ACCESS_PIN) {
+          try { localStorage.setItem(AUTH_STORAGE_KEY, ACCESS_PIN); } catch (err) {}
+          setIsAuthed(true);
+          setPinError(false);
+        } else {
+          setPinError(true);
+        }
+      };
+
+      const handleLogout = () => {
+        try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch (err) {}
+        setIsAuthed(false);
+        setPinInput("");
+      };
 
       const cfg = useMemo(() => {
         const raw = RAW_DB[ticker];
@@ -367,7 +448,7 @@
             [11, microSup * 1.004],
             [12, curP * 0.982],
             [13, (demandLow + demandHigh) * 0.5],
-            [14, vwap * 1.002],
+            [14, vwap * 1.012],
             [15, majorSupLow * 1.005],
             [16, majorSupHigh * 1.006],
             [17, majorSupLow * 0.998]
@@ -376,7 +457,7 @@
             [nowIdx, curP],
             [9,  microSup * 1.008],
             [10, microSup * 1.002],
-            [11, vwap * 0.998],
+            [11, microSup * 1.012],
             [12, curP * 0.995],
             [13, microSup * 1.005],
             [14, majorSupLow * 1.002],
@@ -392,9 +473,9 @@
             [12, demandLow * 0.995],
             [13, stopHuntLow],
             [14, curP * 0.992],
-            [15, vwap * 0.995],
-            [16, vwap * 1.008],
-            [17, vwap * 1.002]
+            [15, vwap * 1.005],
+            [16, microSup * 1.008],
+            [17, microSup * 1.002]
           ];
         } else {
           pathA = [
@@ -520,7 +601,7 @@
       const copyDiscordReport = () => {
         const text = `📊 **【${ticker} 周期模型 V3.6 · 日内分时+宏观流程图战报】**\n` +
           `● **当前实盘锚点**: $${curP.toFixed(2)} (前正盘收 $${cfg.regClose.toFixed(2)})\n` +
-          `● **日内四步作战推演**: ①盘前微阻 $${intradayData.microSup.toFixed(2)} ➔ ②22:30开盘承接区 $${intradayData.demandLow.toFixed(2)}~$${intradayData.demandHigh.toFixed(2)} ➔ ③盘中攻克VWAP ($${intradayData.vwap.toFixed(2)}) ➔ ④尾盘目标带 $${intradayData.majorSupLow.toFixed(2)}~$${intradayData.majorSupHigh.toFixed(2)}\n` +
+          `● **日内四步作战推演**: ①盘前微阻 $${intradayData.microSup.toFixed(2)} ➔ ②22:30开盘承接区 $${intradayData.demandLow.toFixed(2)}~$${intradayData.demandHigh.toFixed(2)} ➔ ③盘中分时均线 ($${intradayData.vwap.toFixed(2)}) ➔ ④尾盘目标带 $${intradayData.majorSupLow.toFixed(2)}~$${intradayData.majorSupHigh.toFixed(2)}\n` +
           `● **第一层 [颈线阻力]**: $${metrics.neckLow.toFixed(2)} ~ $${metrics.neckHigh.toFixed(2)}\n` +
           `● **第二层 [做市商拉针极限区]**: $${metrics.sweepLow.toFixed(2)} ~ $${metrics.sweepHigh.toFixed(2)}\n` +
           `● **跨月周期四阶段**: 11/06节点 $${metrics.p1106.toFixed(2)} ➔ 11/18中继 $${metrics.p1118.toFixed(2)} ➔ 11/26节点 $${metrics.p1126.toFixed(2)} ➔ 12/10节点 $${metrics.p1210.toFixed(2)}`;
@@ -529,6 +610,55 @@
         setTimeout(() => setCopied(false), 2000);
       };
 
+      // 🔐 未登录时渲染暗黑加密门禁界面
+      if (!isAuthed) {
+        return (
+          <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6">
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 text-2xl mb-1">
+                  🛡️
+                </div>
+                <h1 className="text-xl font-bold text-white tracking-tight">
+                  【周期模型 V3.6 × 日内分时雷达】
+                </h1>
+                <p className="text-xs text-slate-400 font-mono">
+                  VIP 内部量化监控终端 · 请输入访问口令解锁
+                </p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <input
+                    type="password"
+                    value={pinInput}
+                    onChange={(e) => { setPinInput(e.target.value); setPinError(false); }}
+                    placeholder="请输入访问密码..."
+                    autoFocus
+                    className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-600 text-white text-center font-mono text-lg tracking-widest focus:outline-none focus:border-indigo-500 transition"
+                  />
+                  {pinError && (
+                    <p className="text-xs text-rose-400 text-center mt-2 font-mono">
+                      ❌ 访问口令错误，请核对后重试
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition shadow-lg shadow-indigo-600/30"
+                >
+                  🔓 验证并进入实时终端
+                </button>
+              </form>
+
+              <div className="text-[11px] text-slate-500 text-center font-mono pt-2 border-t border-slate-800">
+                支持 SOXL / SOXS / TQQQ / SQQQ / QQQ / SPY / SOXX 云端实时推演
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       const { W, H1, H2, PAD_L, PAD_R, allLabels, histPts, futPts, xOf, y1Of, y2Of, minP, maxP, minPct, maxPct } = chartData;
       const nowX = xOf("11/05");
       const shortEndX = xOf("11/18");
@@ -536,7 +666,6 @@
 
       return (
         <div className="min-h-screen p-2.5 md:p-5 max-w-[1440px] mx-auto space-y-4">
-          {/* 顶部导航与7大标的切换栏 */}
           <header className="flex flex-wrap justify-between items-center bg-white px-4 md:px-6 py-3.5 rounded-2xl shadow-sm border border-slate-200 gap-3">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -548,7 +677,7 @@
                       : "bg-amber-50 text-amber-700 border-amber-300"
                   }`}
                 >
-                  {isLive ? `🟢 ${liveStatus}` : `🟡 ${liveStatus} (点此恢复)`}
+                  {isLive ? `🟢 ${liveStatus}` : `🟡 ${liveStatus} (点此恢复自动)`}
                 </button>
                 <span className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
                   ⏱️ {openCountdown}
@@ -587,7 +716,13 @@
                       : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
                   }`}
                 >
-                  {cleanShot ? "📸 退出群聊截图模式" : "📸 群聊截图模式 (隐藏滑块)"}
+                  {cleanShot ? "📸 退出群聊截图模式" : "📸 群聊截图模式"}
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+                >
+                  🔒 锁定
                 </button>
               </div>
             </div>
@@ -619,14 +754,13 @@
             </div>
           </header>
 
-          {/* 滑块与雷达诊断区 (截图模式下隐藏滑块，全宽展示雷达红框) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {!cleanShot && (
               <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-4 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-bold text-slate-800">
-                      {isLive ? "🟢 OpenD 实时锚点" : "🟡 手动沙盘推演"} ({ticker})
+                      {isLive ? "🟢 实时价格锚点" : "🟡 手动沙盘推演"} ({ticker})
                     </span>
                     <span className="text-lg font-mono font-bold text-indigo-600">${curP.toFixed(2)}</span>
                   </div>
@@ -642,7 +776,7 @@
                   <div className="flex justify-between text-[11px] text-slate-400 font-mono mt-1 mb-3">
                     <span>${cfg.minP.toFixed(1)}</span>
                     <button onClick={() => setIsLive(true)} className="text-emerald-600 font-bold underline">
-                      点此切回 OpenD 实时价
+                      点此恢复实时自动同步
                     </button>
                     <span>${cfg.maxP.toFixed(1)}</span>
                   </div>
@@ -679,7 +813,6 @@
             </div>
           </div>
 
-          {/* ================= 模块一：日内 24H 分时实时推演 + 自动四步作战流程图 ================= */}
           {(viewMode === "both" || viewMode === "intraday") && (
             <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border-2 border-indigo-500/30 space-y-4">
               <div className="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
@@ -699,17 +832,17 @@
                   {[
                     {
                       id: "A",
-                      name: cfg.isInverse ? "🎯 剧本A: 开盘冲高摸阻 ➔ 盘中回落 (75% 主推)" : "🎯 剧本A: 开盘回踩筑右脚 ➔ 盘中反攻 (75% 主推)",
+                      name: cfg.isInverse ? "🎯 剧本A: 开盘冲高摸阻 ➔ 盘中回落 (75% 主推)" : "🎯 剧本A: 开盘浅踩确认 ➔ 盘中反攻 (75% 主推)",
                       cls: "bg-indigo-600 text-white"
                     },
                     {
                       id: "B",
-                      name: cfg.isInverse ? "📉 剧本B: 大盘逼空 ➔ 空头ETF回撤 (15%)" : "🚀 剧本B: 浅踩直接逼空冲击颈线 (15% 激进)",
+                      name: cfg.isInverse ? "📉 剧本B: 大盘逼空 ➔ 空头ETF回撤 (15%)" : "🚀 剧本B: 强势逼空直扑第一颈线 (15% 激进)",
                       cls: "bg-emerald-600 text-white"
                     },
                     {
                       id: "C",
-                      name: cfg.isInverse ? "🚀 剧本C: 开盘恐慌下杀 ➔ 空头冲高 (10%)" : "⚠️ 剧本C: 开盘插针扫损 ➔ V反收长下影 (10% 防守)",
+                      name: cfg.isInverse ? "🚀 剧本C: 开盘恐慌下杀 ➔ 空头冲高 (10%)" : "⚠️ 剧本C: 开盘深蹲扫损 ➔ V反收下影 (10% 防守)",
                       cls: "bg-amber-600 text-white"
                     }
                   ].map(sc => (
@@ -726,55 +859,54 @@
                 </div>
               </div>
 
-              {/* ✨ 重新植入并升级：【日内 24H 四步作战自动推演流程图】（专供直接截图发群） */}
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 <div className="text-xs font-bold text-slate-700 mb-2 flex items-center justify-between font-mono">
-                  <span>🗺️ 【{ticker} 日内 24H 四步作战自动推演流程图】（随现价 ${curP.toFixed(2)} 实时动态演算）</span>
+                  <span>🗺️ 【{ticker} 日内 24H 四步作战自动推演流程图】（随现价 ${curP.toFixed(2)} 动态演算）</span>
                   <span className="text-indigo-600">当前激活：{intraScenario === "A" ? "剧本A (75%主推标准轨)" : (intraScenario === "B" ? "剧本B (15%激进轨)" : "剧本C (10%插针防守轨)")}</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5 text-xs font-mono">
-                  <div className="p-3 rounded-xl bg-white border-l-4 border-l-slate-500 border border-slate-200 shadow-sm relative">
+                  <div className="p-3 rounded-xl bg-white border-l-4 border-l-slate-500 border border-slate-200 shadow-sm">
                     <div className="flex justify-between items-center text-slate-500 font-bold">
-                      <span>STEP 1 · 欧盘~盘前</span>
-                      <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">16:30-22:30</span>
+                      <span>STEP 1 · 盘前蓄势</span>
+                      <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">现在-22:30</span>
                     </div>
                     <div className="text-slate-900 font-extrabold text-sm mt-1">
-                      测试微阻 ${intradayData.microSup.toFixed(2)}
+                      博弈微阻 ${intradayData.microSup.toFixed(2)}
                     </div>
                     <div className="text-[11px] text-slate-600 mt-1">
-                      {cfg.isInverse ? "随正股盘前窄幅震荡换手，观望为主" : "上方Supply Zone密集，盘前切勿盲目追高"}
+                      {cfg.isInverse ? "随正股盘前窄幅震荡换手，观望为主" : "凌晨天量V反锁仓，盘前围绕均线上方强势整理"}
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-emerald-50/90 border-l-4 border-l-emerald-600 border border-emerald-200 shadow-sm relative">
+                  <div className="p-3 rounded-xl bg-emerald-50/90 border-l-4 border-l-emerald-600 border border-emerald-200 shadow-sm">
                     <div className="flex justify-between items-center text-emerald-800 font-bold">
-                      <span>STEP 2 · 开盘决战窗</span>
+                      <span>STEP 2 · 开盘回踩窗</span>
                       <span className="text-[10px] bg-emerald-100 px-1.5 py-0.5 rounded">22:30-23:15</span>
                     </div>
                     <div className="text-emerald-700 font-extrabold text-sm mt-1">
                       {cfg.isInverse
                         ? `冲高测试: $${intradayData.majorSupLow.toFixed(2)}`
-                        : `回踩需求区: $${intradayData.demandLow.toFixed(2)}~$${intradayData.demandHigh.toFixed(2)}`}
+                        : `回踩承接: $${intradayData.demandLow.toFixed(2)}~$${intradayData.demandHigh.toFixed(2)}`}
                     </div>
                     <div className="text-[11px] text-emerald-800 mt-1 font-semibold">
-                      {cfg.isInverse ? "🎯 正股开盘下蹲时，反向ETF冲高分批锁利" : "🎯 开盘诱空回测右脚不破，右侧最佳低吸/做T点"}
+                      {cfg.isInverse ? "🎯 正股开盘下蹲时，反向ETF冲高分批锁利" : "🎯 开盘洗盘浅踩突破平台不破，右侧最佳上车点"}
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-indigo-50/90 border-l-4 border-l-indigo-600 border border-indigo-200 shadow-sm relative">
+                  <div className="p-3 rounded-xl bg-indigo-50/90 border-l-4 border-l-indigo-600 border border-indigo-200 shadow-sm">
                     <div className="flex justify-between items-center text-indigo-900 font-bold">
                       <span>STEP 3 · 盘中主升段</span>
                       <span className="text-[10px] bg-indigo-100 px-1.5 py-0.5 rounded">23:15-02:30</span>
                     </div>
                     <div className="text-indigo-700 font-extrabold text-sm mt-1">
-                      攻克 VWAP: ${intradayData.vwap.toFixed(2)}
+                      防守均线: ${intradayData.vwap.toFixed(2)}
                     </div>
                     <div className="text-[11px] text-indigo-800 mt-1 font-semibold">
-                      {cfg.isInverse ? "⚡ 随正股空头回补反攻，回落测试均线支撑" : "🚀 放量站稳分时VWAP均线，触发空头回补主升"}
+                      {cfg.isInverse ? "⚡ 随正股空头回补反攻，回落测试均线支撑" : "🚀 依托分时VWAP均线安全垫，放量逼空冲关"}
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-rose-50/90 border-l-4 border-l-rose-600 border border-rose-200 shadow-sm relative">
+                  <div className="p-3 rounded-xl bg-rose-50/90 border-l-4 border-l-rose-600 border border-rose-200 shadow-sm">
                     <div className="flex justify-between items-center text-rose-900 font-bold">
                       <span>STEP 4 · 尾盘止盈窗</span>
                       <span className="text-[10px] bg-rose-100 px-1.5 py-0.5 rounded">02:30-05:00</span>
@@ -782,16 +914,15 @@
                     <div className="text-rose-700 font-extrabold text-sm mt-1">
                       {cfg.isInverse
                         ? `回踩承接: $${intradayData.demandLow.toFixed(2)}~$${intradayData.demandHigh.toFixed(2)}`
-                        : `冲击阻力带: $${intradayData.majorSupLow.toFixed(2)}~$${intradayData.majorSupHigh.toFixed(2)}`}
+                        : `目标阻力: $${intradayData.majorSupLow.toFixed(2)}~$${intradayData.majorSupHigh.toFixed(2)}`}
                     </div>
                     <div className="text-[11px] text-rose-800 mt-1 font-semibold">
-                      {cfg.isInverse ? "💰 正股尾盘摸顶滞涨时，逢低接回对冲仓" : "💰 3x尾盘正向再平衡摸高，触及前高止盈50%"}
+                      {cfg.isInverse ? "💰 正股尾盘摸顶滞涨时，逢低接回对冲仓" : "💰 3x尾盘正向再平衡助推，触及目标区止盈50%"}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* 日内分时 SVG 画布（已彻底修复文字重叠，全部加上高对比度胶囊底框） */}
               <div className="w-full overflow-x-auto">
                 <svg viewBox={`0 0 ${intradayData.W} ${intradayData.H}`} className="w-full h-auto select-none">
                   <rect
@@ -827,7 +958,6 @@
                     );
                   })}
 
-                  {/* 上方大级别 Supply Zone (文字移至左侧安全区，彻底避免与 04:00 尾盘波峰重叠) */}
                   <rect
                     x={intradayData.PAD_L}
                     y={intradayData.yOf(intradayData.majorSupHigh)}
@@ -840,7 +970,6 @@
                     🔴 日内强阻力带 (Major Supply Zone): ${intradayData.majorSupLow.toFixed(2)} ~ ${intradayData.majorSupHigh.toFixed(2)}
                   </text>
 
-                  {/* 下方核心 Demand Zone (文字移至左侧安全区，彻底避免与 23:00 开盘右脚重叠!) */}
                   <rect
                     x={intradayData.PAD_L}
                     y={intradayData.yOf(intradayData.demandHigh)}
@@ -853,7 +982,6 @@
                     🟢 分时需求承接区 (Demand Zone): ${intradayData.demandLow.toFixed(2)} ~ ${intradayData.demandHigh.toFixed(2)}
                   </text>
 
-                  {/* 日内 VWAP 分时均价线 */}
                   <line
                     x1={intradayData.PAD_L}
                     y1={intradayData.yOf(intradayData.vwap)}
@@ -864,7 +992,7 @@
                     strokeWidth="1.6"
                   />
                   <text x={intradayData.PAD_L + 10} y={intradayData.yOf(intradayData.vwap) - 6} fontSize="10.5" fontWeight="bold" fill="#FBBF24" className="font-mono">
-                    🟡 分时均价线 (VWAP 引力轴): ${intradayData.vwap.toFixed(2)}
+                    🟡 分时均价线 (VWAP 防守轴): ${intradayData.vwap.toFixed(2)}
                   </text>
 
                   <line x1={intradayData.xOf(intradayData.nowIdx)} y1={intradayData.PAD_T} x2={intradayData.xOf(intradayData.nowIdx)} y2={intradayData.H - intradayData.PAD_B} stroke="#EF4444" strokeDasharray="5 3" strokeWidth="1.8" />
@@ -901,7 +1029,6 @@
                     points={intradayData.pastPts.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")}
                   />
 
-                  {/* 当前实时现价（带胶囊黑底框，防止被白线穿过看不清） */}
                   <circle cx={intradayData.xOf(intradayData.nowIdx)} cy={intradayData.yOf(curP)} r="6" fill="#EF4444" stroke="#FEF2F2" strokeWidth="2" />
                   <g transform={`translate(${intradayData.xOf(intradayData.nowIdx)}, ${intradayData.yOf(curP) - 22})`}>
                     <rect x="-68" y="-12" width="136" height="20" rx="5" fill="#0F172A" stroke="#EF4444" strokeWidth="1.2" opacity="0.92" />
@@ -910,10 +1037,9 @@
                     </text>
                   </g>
 
-                  {/* 三大推演拐点（全部带高对比度胶囊底框，彻底告别文字重叠） */}
                   {[
                     { idx: 13, label: cfg.isInverse ? "23:00 开盘冲高" : "23:00 开盘右脚", color: "#34D399", dy: cfg.isInverse ? -22 : 24 },
-                    { idx: 14, label: "00:30 均线博弈", color: "#FBBF24", dy: -22 },
+                    { idx: 14, label: "00:30 均线确认", color: "#FBBF24", dy: -22 },
                     { idx: 16, label: cfg.isInverse ? "04:00 尾盘回落" : "04:00 尾盘波峰", color: "#38BDF8", dy: cfg.isInverse ? 24 : -22 }
                   ].map((pt, i) => {
                     const item = activeIntraPath.find(d => d[0] === pt.idx);
@@ -952,7 +1078,6 @@
             </div>
           )}
 
-          {/* ================= 模块二：跨月日K宏观周期分形图 + 跨月四阶段流程图 ================= */}
           {(viewMode === "both" || viewMode === "macro") && (
             <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
               <div className="flex flex-wrap justify-between items-center gap-2">
@@ -964,7 +1089,6 @@
                 </span>
               </div>
 
-              {/* ✨ 新增：【跨月宏观周期四阶段推演流程图】 */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5 text-xs font-mono bg-slate-50 p-3 rounded-2xl border border-slate-200">
                 <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200">
                   <div className="text-amber-800 font-bold">第一相 · 11/06 超跌反抽锚</div>

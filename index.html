@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>【原始PDF周期算法 V3.5 × 3x损耗锁锚双轨终端】</title>
+  <title>【原始PDF周期算法 V3.5 × 日内四步作战推演终端】</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -27,14 +27,13 @@
     const AUTH_STORAGE_KEY = "moo_cycle_pdf_auth_token";
     const TICKER_ORDER = ["SOXL", "SOXS", "TQQQ", "SQQQ", "QQQ", "SPY", "SOXX"];
 
-    // 原始 PDF 确立的 10/14 未折价理论母版与衰减系数 (100% 还原 PDF 曲线与节点)
     const RAW_DB = {
       SOXL: {
         name: "3倍做多半导体ETF (高危杠杆)",
         isInverse: false,
         leftFootClose: 40.87, regClose: 56.06, minP: 32.0, maxP: 82.0, step: 0.1,
-        theoToday: 66.50, // 11/11 原始PDF理论基准位 (11/09为70.33)
-        betaDecay: 0.125, // 3倍杠杆累计震荡磨损率 12.5% (48.40 * 0.875 = 42.35)
+        theoToday: 66.50,
+        betaDecay: 0.125,
         presets: [
           { label: "11/09锚点: $56.20", val: 56.20, baseTheo: 70.33, style: "bg-slate-50 border-slate-200 text-slate-700" },
           { label: "周二正盘收: $56.06", val: 56.06, baseTheo: 66.50, style: "bg-indigo-50 border-indigo-200 text-indigo-700" },
@@ -46,26 +45,14 @@
           ["10/05", 164], ["10/12", 128], ["10/19", 95],  ["10/26", 89],  ["10/30", 108],
           ["11/02", 72],  ["11/05", 40.87], ["11/09", 56.20], ["11/10", 56.06]
         ],
-        // 10/14 原始未折价理论母版 (灰色点线，绝对标尺永不改变)
         theoCurve: [
           ["10/12", 128.0], ["10/19", 85.0], ["10/26", 88.0], ["10/30", 108.0], ["11/05", 79.23],
           ["11/09", 70.33], ["11/10", 68.40], ["11/11", 66.50], ["11/16", 60.10], ["11/18", 57.98],
           ["11/23", 51.80], ["11/26", 48.40], ["12/03", 63.50], ["12/10", 75.71], ["12/21", 56.00], ["12/31", 50.60]
         ],
-        // 原始 PDF 乖离回归保留权重 w(t) = exp(-lambda * dt)，使得当锚点=56.20(乖离-20.09%)时：
-        // 11/18 = 57.98 * (1 - 0.2009 * 0.2568) = 54.99
-        // 11/26 = 48.40 * (1 - 0.2009 * 0.0905) = 47.52
-        // 12/10 = 75.71 * (1 - 0.2009 * 0.0072) = 75.60
         reversionWeights: {
-          "11/11": 1.0000,
-          "11/16": 0.4200,
-          "11/18": 0.2568,
-          "11/23": 0.1400,
-          "11/26": 0.0905,
-          "12/03": 0.0350,
-          "12/10": 0.0072,
-          "12/21": 0.0020,
-          "12/31": 0.0000
+          "11/11": 1.0000, "11/16": 0.4200, "11/18": 0.2568, "11/23": 0.1400,
+          "11/26": 0.0905, "12/03": 0.0350, "12/10": 0.0072, "12/21": 0.0020, "12/31": 0.0000
         },
         mmRadarRatios: {
           pivot: 54.40 / 56.20,
@@ -73,8 +60,8 @@
           sweep: [62.90 / 56.20, 63.74 / 56.20]
         },
         intradaySeed: {
-          vwapRatio: 0.962, demandLowRatio: 0.910, demandHighRatio: 0.928,
-          microSupRatio: 1.015, majorSupLow: 1.025, majorSupHigh: 1.042,
+          vwapRatio: 0.962, demandLowRatio: 0.915, demandHighRatio: 0.932,
+          microSupRatio: 1.008, majorSupLow: 1.025, majorSupHigh: 1.045,
           pastRatios: [0.867, 0.895, 0.925, 0.948, 0.965, 0.985, 1.022, 1.000]
         },
         phaseDesc: "【原始PDF乖离均值回归相】实盘从超跌 (-20.1%) 逼空修复至盘前 $64.68，已完成向原始理论母版的乖离收敛",
@@ -139,8 +126,8 @@
         },
         mmRadarRatios: { pivot: 0.97, neck: [1.06, 1.08], sweep: [1.10, 1.13] },
         intradaySeed: {
-          vwapRatio: 0.985, demandLowRatio: 0.965, demandHighRatio: 0.975,
-          microSupRatio: 1.012, majorSupLow: 1.032, majorSupHigh: 1.048,
+          vwapRatio: 1.008, demandLowRatio: 0.978, demandHighRatio: 0.988,
+          microSupRatio: 1.005, majorSupLow: 1.032, majorSupHigh: 1.048,
           pastRatios: [0.93, 0.95, 0.96, 0.98, 0.99, 1.01, 1.015, 1.00]
         },
         phaseDesc: "【原始PDF乖离回归相】跟随 QQQ 修复负乖离，下半月仍需回踩 11/26 黄金坑 ($76.2 / 扣磨损 $69.3)",
@@ -185,7 +172,7 @@
         leftFootClose: 647.05, regClose: 662.50, minP: 610.0, maxP: 740.0, step: 0.5,
         theoToday: 692.00, betaDecay: 0.0,
         presets: [
-          { label: "左脚收盘: $647.05", val: 647.05, baseTheo: 692.00, style: "bg-slate-50 border-slate-200 text-slate-700" },
+          { label: "截图复刻: $656.38", val: 656.38, baseTheo: 692.00, style: "bg-slate-50 border-slate-200 text-slate-700" },
           { label: "当前锚点: $668.50", val: 668.50, baseTheo: 692.00, style: "bg-indigo-50 border-indigo-200 text-indigo-700" },
           { label: "11/26黄金坑: $648.09", val: 648.09, baseTheo: 692.00, style: "bg-rose-50 border-rose-200 text-rose-700" },
           { label: "12/10跨年峰: $709.90", val: 709.90, baseTheo: 692.00, style: "bg-emerald-50 border-emerald-200 text-emerald-700" }
@@ -205,8 +192,8 @@
         },
         mmRadarRatios: { pivot: 0.988, neck: [1.022, 1.032], sweep: [1.038, 1.045] },
         intradaySeed: {
-          vwapRatio: 0.995, demandLowRatio: 0.988, demandHighRatio: 0.992,
-          microSupRatio: 1.005, majorSupLow: 1.014, majorSupHigh: 1.022,
+          vwapRatio: 1.009, demandLowRatio: 0.991, demandHighRatio: 0.994,
+          microSupRatio: 1.004, majorSupLow: 1.018, majorSupHigh: 1.024,
           pastRatios: [0.978, 0.984, 0.989, 0.992, 0.996, 1.001, 1.003, 1.000]
         },
         phaseDesc: "【1倍母体无杠杆磨损】原始 PDF 母版锁死 11/18 ($667.0) 与 11/26 黄金坑 ($648.09)",
@@ -238,8 +225,8 @@
         },
         mmRadarRatios: { pivot: 0.990, neck: [1.010, 1.018], sweep: [1.022, 1.028] },
         intradaySeed: {
-          vwapRatio: 0.997, demandLowRatio: 0.992, demandHighRatio: 0.995,
-          microSupRatio: 1.004, majorSupLow: 1.010, majorSupHigh: 1.015,
+          vwapRatio: 1.004, demandLowRatio: 0.992, demandHighRatio: 0.995,
+          microSupRatio: 1.003, majorSupLow: 1.010, majorSupHigh: 1.015,
           pastRatios: [0.989, 0.992, 0.995, 0.997, 0.999, 1.001, 1.002, 1.000]
         },
         phaseDesc: "【温和阶梯回撤相】完全贴合原始 PDF 理论母版，距离 11/26 黄金坑 ($705.93) 仍有补跌空间",
@@ -291,7 +278,6 @@
       const [prices, setPrices] = useState({
         SOXL: 64.68, SOXS: 17.65, TQQQ: 86.80, SQQQ: 16.90, QQQ: 668.50, SPY: 741.20, SOXX: 154.10
       });
-      // 支持切换理论基准日：默认使用今日理论位，若点击"11/09锚点:$56.20"则自动用70.33复刻原图
       const [customBaseTheo, setCustomBaseTheo] = useState(null);
       const [isLive, setIsLive] = useState(true);
       const [liveStatus, setLiveStatus] = useState("正在同步云端实时行情...");
@@ -402,9 +388,8 @@
         setPrices(prev => ({ ...prev, [ticker]: val }));
       };
 
-      // ✨ 核心算法：100% 按照原始 PDF 的【10/14理论母版 + 乖离率指数衰减回归】实时计算
       const metrics = useMemo(() => {
-        const spreadRatio = (curP / activeTheoNow) - 1.0; // R_0 - 1
+        const spreadRatio = (curP / activeTheoNow) - 1.0;
         const spreadPct = spreadRatio * 100;
 
         const theoMap = Object.fromEntries(cfg.theoCurve);
@@ -414,7 +399,6 @@
           return baseT * (1.0 + spreadRatio * w);
         };
 
-        // 1. 原始 PDF 乖离均值回归轨 (当锚点=56.20, 基准=70.33时，精确输出 11/18=54.99, 11/26=47.52, 12/10=75.60)
         const pdfTrack = {
           pivot: curP * cfg.mmRadarRatios.pivot,
           p1116: calcPdfReversion("11/16"),
@@ -431,16 +415,15 @@
           sweepHigh: curP * cfg.mmRadarRatios.sweep[1]
         };
 
-        // 2. 3x 杠杆磨损锁锚轨 (在原始 PDF 10/14 母版基础上扣除不可逆波动率损耗 betaDecay，11/26 锁定在 $42.35)
         const dFactor = 1.0 - cfg.betaDecay;
         const lockedTrack = {
           pivot: curP * 0.945,
           p1116: (theoMap["11/16"] * dFactor) * 0.94,
-          p1118: (theoMap["11/18"] * dFactor) * 0.936, // $47.53
+          p1118: (theoMap["11/18"] * dFactor) * 0.936,
           p1123: (theoMap["11/23"] * dFactor),
-          p1126: (theoMap["11/26"] * dFactor),         // 48.40 * 0.875 = $42.35
+          p1126: (theoMap["11/26"] * dFactor),
           p1203: (theoMap["12/03"] * dFactor),
-          p1210: (theoMap["12/10"] * dFactor) * 0.974, // $64.52
+          p1210: (theoMap["12/10"] * dFactor) * 0.974,
           p1221: (theoMap["12/21"] * dFactor),
           p1231: (theoMap["12/31"] * dFactor),
           neckLow: theoMap["11/11"] * 0.925,
@@ -453,13 +436,13 @@
       }, [ticker, curP, activeTheoNow, cfg]);
 
       const intradayData = useMemo(() => {
-        const W = 1000, H = 340, PAD_L = 64, PAD_R = 28, PAD_T = 28, PAD_B = 34;
+        const W = 1000, H = 350, PAD_L = 64, PAD_R = 28, PAD_T = 28, PAD_B = 34;
         const plotW = W - PAD_L - PAD_R;
         const seed = cfg.intradaySeed;
 
         const slots = [
-          "04:00", "05:30", "07:00", "08:00", "12:00", "16:00", "19:00", "20:15",
-          "NOW",   "21:30", "22:30", "23:15", "00:30", "01:30", "02:30", "03:30", "04:30", "05:00"
+          "08:00", "08:30", "09:30", "11:00", "12:30", "14:00", "15:00", "15:45",
+          "NOW",   "18:00", "20:00", "21:30", "22:30", "23:00", "00:30", "02:30", "04:00", "05:00"
         ];
         const xOf = (idx) => PAD_L + (idx / (slots.length - 1)) * plotW;
         const nowIdx = 8;
@@ -470,7 +453,7 @@
         const microSup = curP * seed.microSupRatio;
         const majorSupLow = curP * seed.majorSupLow;
         const majorSupHigh = curP * seed.majorSupHigh;
-        const stopHuntLow = demandLow * 0.975;
+        const stopHuntLow = demandLow * 0.982;
 
         const pastPts = seed.pastRatios.map((r, i) => [i, curP * r]);
         pastPts.push([nowIdx, curP]);
@@ -479,39 +462,39 @@
         if (!cfg.isInverse) {
           pathA = [
             [nowIdx, curP],
-            [9,  curP * 1.008],
-            [10, majorSupLow * 0.998],
-            [11, vwap * 1.005],
-            [12, vwap * 0.985],
-            [13, demandHigh * 1.008],
-            [14, (demandLow + demandHigh) * 0.5],
-            [15, demandLow * 1.002],
-            [16, demandHigh * 0.995],
-            [17, demandLow * 0.998]
+            [9,  microSup * 0.998],
+            [10, curP * 0.992],
+            [11, microSup * 1.002],
+            [12, curP * 0.985],
+            [13, (demandLow + demandHigh) * 0.5],
+            [14, vwap * 1.002],
+            [15, majorSupLow * 1.002],
+            [16, majorSupHigh * 0.998],
+            [17, majorSupLow * 1.005]
           ];
           pathB = [
             [nowIdx, curP],
-            [9,  microSup * 1.002],
-            [10, majorSupHigh * 1.002],
-            [11, majorSupLow * 0.995],
-            [12, curP * 0.992],
-            [13, vwap * 1.008],
-            [14, curP * 0.995],
-            [15, vwap * 1.002],
-            [16, vwap * 0.995],
-            [17, vwap * 1.000]
+            [9,  microSup * 1.005],
+            [10, microSup * 1.002],
+            [11, microSup * 1.010],
+            [12, curP * 0.996],
+            [13, vwap * 1.005],
+            [14, majorSupLow * 1.002],
+            [15, majorSupHigh * 1.008],
+            [16, majorSupHigh * 1.018],
+            [17, majorSupHigh * 1.012]
           ];
           pathC = [
             [nowIdx, curP],
-            [9,  curP * 0.988],
-            [10, vwap * 0.992],
-            [11, demandHigh * 0.995],
-            [12, demandLow * 0.990],
+            [9,  curP * 0.994],
+            [10, curP * 0.985],
+            [11, demandHigh * 1.002],
+            [12, demandLow * 0.995],
             [13, stopHuntLow],
-            [14, demandLow * 0.992],
-            [15, demandLow * 0.985],
-            [16, stopHuntLow * 0.995],
-            [17, stopHuntLow]
+            [14, demandHigh * 1.002],
+            [15, vwap * 0.998],
+            [16, microSup * 1.004],
+            [17, vwap * 1.002]
           ];
         } else {
           pathA = [
@@ -587,7 +570,6 @@
         const P = metrics.pdfTrack;
         const L = metrics.lockedTrack;
 
-        // 💎 原始 PDF 乖离均值回归动态轨 (蓝色虚线)
         const futPdf = [
           ["11/11", curP],
           ["11/16", P.p1116],
@@ -600,7 +582,6 @@
           ["12/31", P.p1231]
         ];
 
-        // 🛡️ 3x 损耗锁锚对照轨 (深紫/深蓝虚线)
         const futLocked = [
           ["11/11", curP],
           ["11/16", curP * 0.35 + L.p1118 * 0.65],
@@ -636,11 +617,11 @@
       const copyDiscordReport = () => {
         const P = metrics.pdfTrack;
         const L = metrics.lockedTrack;
-        const text = `📊 **【${ticker} 原始PDF周期算法 V3.5 × 3x损耗锁锚双轨战报】**\n` +
+        const text = `📊 **【${ticker} 原始PDF周期算法 V3.5 × 日内四步作战推演战报】**\n` +
           `● **实盘 vs 10/14原始标尺**: 最新锚点 $${curP.toFixed(2)} | 今日PDF理论基准 $${activeTheoNow.toFixed(2)} (实时乖离 ${metrics.spreadPct >= 0 ? "+" : ""}${metrics.spreadPct.toFixed(1)}%)\n` +
+          `● **🗺️ [日内24H四步作战流程图]**: ①盘前微阻 $${intradayData.microSup.toFixed(2)} ➔ ②22:30开盘需求区 $${intradayData.demandLow.toFixed(2)}~$${intradayData.demandHigh.toFixed(2)} ➔ ③攻克VWAP $${intradayData.vwap.toFixed(2)} ➔ ④尾盘冲击阻力带 $${intradayData.majorSupLow.toFixed(2)}~$${intradayData.majorSupHigh.toFixed(2)}\n` +
           `● **💎 [原始PDF乖离均值回归轨]**: 日内转弱位 $${P.pivot.toFixed(2)} ➔ 11/18中继 $${P.p1118.toFixed(2)} ➔ **11/26黄金坑 $${P.p1126.toFixed(2)}** ➔ 12/10主升峰 $${P.p1210.toFixed(2)}\n` +
-          `● **🛡️ [3x杠杆磨损锁锚对照轨]**: 11/18中继 $${L.p1118.toFixed(2)} ➔ **11/26磨损极限右脚 $${L.p1126.toFixed(2)}** ➔ 12/10扣磨损峰 $${L.p1210.toFixed(2)}\n` +
-          `● **做市商盘前扫损雷达**: 第一层颈线 $${P.neckLow.toFixed(2)}~$${P.neckHigh.toFixed(2)} | 第二层极限扫损区 $${P.sweepLow.toFixed(2)}~$${P.sweepHigh.toFixed(2)}`;
+          `● **🛡️ [3x杠杆磨损锁锚对照轨]**: 11/18中继 $${L.p1118.toFixed(2)} ➔ **11/26磨损极限右脚 $${L.p1126.toFixed(2)}** ➔ 12/10扣磨损峰 $${L.p1210.toFixed(2)}`;
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -692,6 +673,7 @@
       const { W, H1, H2, PAD_L, PAD_R, allLabels, histPts, futPdf, futLocked, xOf, y1Of, y2Of, minP, maxP, minPct, maxPct } = chartData;
       const nowX = xOf("11/11");
       const shortEndX = xOf("11/18");
+      const activeIntraPath = intraScenario === "A" ? intradayData.pathA : (intraScenario === "B" ? intradayData.pathB : intradayData.pathC);
 
       return (
         <div className="min-h-screen p-2.5 md:p-5 max-w-[1440px] mx-auto space-y-4">
@@ -709,7 +691,7 @@
                   {isLive ? `🟢 ${liveStatus}` : `🟡 ${liveStatus} (点此恢复自动)`}
                 </button>
                 <span className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  📐 10/14 原始PDF母版 + 乖离均值回归引擎
+                  📐 10/14 原始PDF母版 + 日内24H四步流程图
                 </span>
                 <h1 className="text-base md:text-xl font-bold text-slate-900 tracking-tight">
                   {ticker} - {cfg.name}
@@ -718,9 +700,9 @@
 
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 {[
-                  { id: "both", label: "⚡ 宏观PDF双轨 + 日内同屏" },
-                  { id: "macro", label: "📅 仅看原始PDF跨月推演图" },
-                  { id: "intraday", label: "📈 仅看日内24H分时雷达" }
+                  { id: "both", label: "⚡ 日内+宏观双擎同屏" },
+                  { id: "intraday", label: "📈 仅看日内24H四步推演" },
+                  { id: "macro", label: "📅 仅看原始PDF跨月推演图" }
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -773,7 +755,7 @@
                 onClick={copyDiscordReport}
                 className="ml-1 px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm"
               >
-                {copied ? "✅ 已复制" : "📋 复制PDF战报"}
+                {copied ? "✅ 已复制" : "📋 复制完整战报"}
               </button>
             </div>
           </header>
@@ -832,7 +814,6 @@
                   ▸ 第一层 [顶底互换颈线阻力]: <b>${metrics.pdfTrack.neckLow.toFixed(2)} ~ ${metrics.pdfTrack.neckHigh.toFixed(2)}</b> | 第二层 [拉针扫损极限区]: <b className="text-rose-700">${metrics.pdfTrack.sweepLow.toFixed(2)} ~ ${metrics.pdfTrack.sweepHigh.toFixed(2)}</b>
                 </div>
 
-                {/* 原始 PDF 回归轨 vs 3x 损耗锁锚轨并列对照 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
                   <div className="p-2.5 rounded-lg bg-white/95 border-2 border-blue-500">
                     <div className="font-bold text-blue-900">💎【原始PDF算法：乖离均值回归动态轨】</div>
@@ -854,7 +835,209 @@
             </div>
           </div>
 
-          {/* ================= 原始 PDF 跨月日K宏观周期分形推演图 ================= */}
+          {/* ================= 🗺️ 日内 24H 分时实时推演模块 (含你截图的四步作战流程图) ================= */}
+          {(viewMode === "both" || viewMode === "intraday") && (
+            <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border-2 border-indigo-500/30 space-y-4">
+              <div className="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 text-xs font-bold rounded-md bg-indigo-600 text-white">LIVE 日内分时雷达</span>
+                    <h2 className="text-base md:text-lg font-bold text-slate-900">
+                      {ticker} 今日 24H 夜盘 + 今晚 22:30 美股正盘分时推演图
+                    </h2>
+                  </div>
+                  <p className="text-xs text-slate-500 font-mono mt-1">
+                    左侧白线为今日已走完夜盘/亚盘分时轨迹 · 红点为当前实盘锚点 (${curP.toFixed(2)}) · 右侧为今晚欧盘至明早 05:00 正盘收盘实时推演
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    {
+                      id: "A",
+                      name: "🎯 剧本A: 开盘回踩筑右脚 ➔ 盘中反攻 (75% 主推)",
+                      cls: "bg-indigo-600 text-white shadow-md"
+                    },
+                    {
+                      id: "B",
+                      name: "🚀 剧本B: 浅踩直接逼空冲击颈线 (15% 激进)",
+                      cls: "bg-emerald-600 text-white shadow-md"
+                    },
+                    {
+                      id: "C",
+                      name: "⚠️ 剧本C: 开盘插针扫损 ➔ V反收长下影 (10% 防守)",
+                      cls: "bg-amber-600 text-white shadow-md"
+                    }
+                  ].map(sc => (
+                    <button
+                      key={sc.id}
+                      onClick={() => setIntraScenario(sc.id)}
+                      className={`px-3.5 py-1.5 text-xs font-bold rounded-full transition ${
+                        intraScenario === sc.id ? sc.cls : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {sc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ✨ 100% 复刻你截图的【日内 24H 四步作战自动推演流程图】卡片区 */}
+              <div className="bg-slate-50/90 p-3.5 rounded-2xl border border-slate-200">
+                <div className="text-xs font-bold text-slate-700 mb-2.5 flex flex-wrap items-center justify-between font-mono gap-2">
+                  <span>🗺️ 【{ticker} 日内 24H 四步作战自动推演流程图】（随现价 ${curP.toFixed(2)} 实时动态演算）</span>
+                  <span className="text-indigo-600 font-extrabold">
+                    当前激活：{intraScenario === "A" ? "剧本A（75%主推标准轨）" : (intraScenario === "B" ? "剧本B（15%激进逼空轨）" : "剧本C（10%插针防守轨）")}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
+                  {/* STEP 1 */}
+                  <div className="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-500 border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-center text-slate-500 font-bold">
+                      <span>STEP 1 · 欧盘~盘前</span>
+                      <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">16:30-22:30</span>
+                    </div>
+                    <div className="text-slate-900 font-extrabold text-[15px] mt-1.5">
+                      测试微阻 ${intradayData.microSup.toFixed(2)}
+                    </div>
+                    <div className="text-[11px] text-slate-600 mt-1.5 leading-relaxed">
+                      上方Supply Zone密集，盘前切勿盲目追高
+                    </div>
+                  </div>
+
+                  {/* STEP 2 */}
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/80 border-l-4 border-l-emerald-600 border border-emerald-200 shadow-sm">
+                    <div className="flex justify-between items-center text-emerald-800 font-bold">
+                      <span>STEP 2 · 开盘决战窗</span>
+                      <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">22:30-23:15</span>
+                    </div>
+                    <div className="text-emerald-700 font-extrabold text-[15px] mt-1.5">
+                      {intraScenario === "C"
+                        ? `极限扫损针: $${intradayData.stopHuntLow.toFixed(2)}`
+                        : `回踩需求区: $${intradayData.demandLow.toFixed(2)}~$${intradayData.demandHigh.toFixed(2)}`}
+                    </div>
+                    <div className="text-[11px] text-emerald-800 mt-1.5 font-semibold leading-relaxed">
+                      🎯 开盘诱空回测右脚不破，右侧最佳低吸/做T点
+                    </div>
+                  </div>
+
+                  {/* STEP 3 */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200 shadow-sm">
+                    <div className="flex justify-between items-center text-indigo-900 font-bold">
+                      <span>STEP 3 · 盘中主升段</span>
+                      <span className="text-[11px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md">23:15-02:30</span>
+                    </div>
+                    <div className="text-indigo-700 font-extrabold text-[15px] mt-1.5">
+                      攻克 VWAP: ${intradayData.vwap.toFixed(2)}
+                    </div>
+                    <div className="text-[11px] text-indigo-800 mt-1.5 font-semibold leading-relaxed">
+                      🚀 放量站稳分时VWAP均线，触发空头回补主升
+                    </div>
+                  </div>
+
+                  {/* STEP 4 */}
+                  <div className="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200 shadow-sm">
+                    <div className="flex justify-between items-center text-rose-900 font-bold">
+                      <span>STEP 4 · 尾盘止盈窗</span>
+                      <span className="text-[11px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded-md">02:30-05:00</span>
+                    </div>
+                    <div className="text-rose-700 font-extrabold text-[15px] mt-1.5">
+                      冲击阻力带: ${intradayData.majorSupLow.toFixed(2)}~${intradayData.majorSupHigh.toFixed(2)}
+                    </div>
+                    <div className="text-[11px] text-rose-800 mt-1.5 font-semibold leading-relaxed">
+                      💰 3x尾盘正向再平衡摸高，触及前高止盈50%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 日内 24H 分时 SVG 画布 (含关键节点气泡标注) */}
+              <div className="w-full overflow-x-auto">
+                <svg viewBox={`0 0 ${intradayData.W} ${intradayData.H}`} className="w-full h-auto select-none">
+                  <rect x={intradayData.PAD_L} y={intradayData.PAD_T} width={intradayData.W - intradayData.PAD_L - intradayData.PAD_R} height={intradayData.H - intradayData.PAD_T - intradayData.PAD_B} fill="#0F172A" rx="8" />
+                  <rect x={intradayData.xOf(12)} y={intradayData.PAD_T} width={intradayData.xOf(17) - intradayData.xOf(12)} height={intradayData.H - intradayData.PAD_T - intradayData.PAD_B} fill="#1E293B" opacity="0.75" />
+                  <text x={intradayData.xOf(12) + 10} y={intradayData.PAD_T + 18} fontSize="11" fontWeight="bold" fill="#94A3B8" className="font-mono">
+                    🇺🇸 22:30 美股正盘开盘决战区 (Regular Session)
+                  </text>
+
+                  {[0, 0.25, 0.5, 0.75, 1].map((r, i) => {
+                    const py = intradayData.PAD_T + r * (intradayData.H - intradayData.PAD_T - intradayData.PAD_B);
+                    const pVal = intradayData.maxY - r * (intradayData.maxY - intradayData.minY);
+                    return (
+                      <g key={i}>
+                        <line x1={intradayData.PAD_L} y1={py} x2={intradayData.W - intradayData.PAD_R} y2={py} stroke="#334155" strokeDasharray="3 3" strokeWidth="0.8" />
+                        <text x={intradayData.PAD_L - 8} y={py + 4} textAnchor="end" fontSize="11" fill="#475569" className="font-mono font-semibold">
+                          ${pVal.toFixed(2)}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  <rect x={intradayData.PAD_L} y={intradayData.yOf(intradayData.majorSupHigh)} width={intradayData.W - intradayData.PAD_L - intradayData.PAD_R} height={Math.max(4, intradayData.yOf(intradayData.majorSupLow) - intradayData.yOf(intradayData.majorSupHigh))} fill="#F43F5E" opacity="0.22" />
+                  <text x={intradayData.PAD_L + 10} y={intradayData.yOf(intradayData.majorSupHigh) + 13} textAnchor="start" fontSize="10.5" fontWeight="bold" fill="#FDA4AF" className="font-mono">
+                    🔴 日内强阻力带 (Major Supply Zone): ${intradayData.majorSupLow.toFixed(2)} ~ ${intradayData.majorSupHigh.toFixed(2)}
+                  </text>
+
+                  <rect x={intradayData.PAD_L} y={intradayData.yOf(intradayData.demandHigh)} width={intradayData.W - intradayData.PAD_L - intradayData.PAD_R} height={Math.max(4, intradayData.yOf(intradayData.demandLow) - intradayData.yOf(intradayData.demandHigh))} fill="#10B981" opacity="0.25" />
+                  <text x={intradayData.PAD_L + 10} y={intradayData.yOf(intradayData.demandHigh) - 6} textAnchor="start" fontSize="10.5" fontWeight="bold" fill="#6EE7B7" className="font-mono">
+                    🟢 分时需求承接区 (Demand Zone): ${intradayData.demandLow.toFixed(2)} ~ ${intradayData.demandHigh.toFixed(2)}
+                  </text>
+
+                  <line x1={intradayData.PAD_L} y1={intradayData.yOf(intradayData.vwap)} x2={intradayData.W - intradayData.PAD_R} y2={intradayData.yOf(intradayData.vwap)} stroke="#FBBF24" strokeDasharray="6 4" strokeWidth="1.6" />
+                  <text x={intradayData.PAD_L + 10} y={intradayData.yOf(intradayData.vwap) - 6} fontSize="10.5" fontWeight="bold" fill="#FBBF24" className="font-mono">
+                    🟡 分时均价线 (VWAP 防守轴): ${intradayData.vwap.toFixed(2)}
+                  </text>
+
+                  <line x1={intradayData.xOf(intradayData.nowIdx)} y1={intradayData.PAD_T} x2={intradayData.xOf(intradayData.nowIdx)} y2={intradayData.H - intradayData.PAD_B} stroke="#EF4444" strokeDasharray="5 3" strokeWidth="1.8" />
+                  <line x1={intradayData.xOf(12)} y1={intradayData.PAD_T} x2={intradayData.xOf(12)} y2={intradayData.H - intradayData.PAD_B} stroke="#6366F1" strokeDasharray="4 4" strokeWidth="1.4" />
+
+                  <polyline fill="none" stroke="#10B981" strokeWidth={intraScenario === "B" ? "3.2" : "1.3"} strokeDasharray="4 4" opacity={intraScenario === "B" ? "1" : "0.38"} points={intradayData.pathB.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
+                  <polyline fill="none" stroke="#F97316" strokeWidth={intraScenario === "C" ? "3.2" : "1.3"} strokeDasharray="4 4" opacity={intraScenario === "C" ? "1" : "0.38"} points={intradayData.pathC.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
+                  <polyline fill="none" stroke="#38BDF8" strokeWidth={intraScenario === "A" ? "3.4" : "1.5"} strokeDasharray="7 4" opacity={intraScenario === "A" ? "1" : "0.42"} points={intradayData.pathA.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
+                  <polyline fill="none" stroke="#F8FAFC" strokeWidth="2.8" points={intradayData.pastPts.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
+
+                  <circle cx={intradayData.xOf(intradayData.nowIdx)} cy={intradayData.yOf(curP)} r="6" fill="#EF4444" stroke="#FEF2F2" strokeWidth="2" />
+                  <g transform={`translate(${intradayData.xOf(intradayData.nowIdx)}, ${intradayData.yOf(curP) - 22})`}>
+                    <rect x="-68" y="-12" width="136" height="20" rx="5" fill="#0F172A" stroke="#EF4444" strokeWidth="1.2" opacity="0.92" />
+                    <text x="0" y="2" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#FCA5A5" className="font-mono">
+                      实时现价: ${curP.toFixed(2)}
+                    </text>
+                  </g>
+
+                  {[
+                    { idx: 13, label: "23:00 开盘右脚", color: "#34D399", dy: 24 },
+                    { idx: 14, label: "00:30 攻克VWAP", color: "#FBBF24", dy: -22 },
+                    { idx: 16, label: "04:00 尾盘波峰", color: "#38BDF8", dy: -22 }
+                  ].map((pt, i) => {
+                    const item = activeIntraPath.find(d => d[0] === pt.idx);
+                    if (!item) return null;
+                    const cx = intradayData.xOf(pt.idx);
+                    const cy = intradayData.yOf(item[1]);
+                    return (
+                      <g key={i}>
+                        <circle cx={cx} cy={cy} r="5" fill={pt.color} stroke="#0F172A" strokeWidth="1.5" />
+                        <g transform={`translate(${cx}, ${cy + pt.dy})`}>
+                          <rect x="-78" y="-12" width="156" height="20" rx="5" fill="#0F172A" stroke={pt.color} strokeWidth="1" opacity="0.92" />
+                          <text x="0" y="2" textAnchor="middle" fontSize="10.5" fontWeight="bold" fill={pt.color} className="font-mono">
+                            {pt.label}: ${item[1].toFixed(2)}
+                          </text>
+                        </g>
+                      </g>
+                    );
+                  })}
+
+                  {intradayData.slots.map((lbl, idx) => (
+                    <text key={idx} x={intradayData.xOf(idx)} y={intradayData.H - 10} textAnchor="middle" fontSize="10.5" fontWeight={lbl === "NOW" || lbl === "22:30" ? "bold" : "normal"} fill={lbl === "NOW" ? "#EF4444" : (lbl === "22:30" ? "#818CF8" : "#64748B")} className="font-mono">
+                      {lbl}
+                    </text>
+                  ))}
+                </svg>
+              </div>
+            </div>
+          )}
+
+          {/* ================= 原始 PDF 跨月日K宏观周期分形推演图 (含跨月四阶段流程图) ================= */}
           {(viewMode === "both" || viewMode === "macro") && (
             <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border-2 border-blue-500/30 space-y-4">
               <div className="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
@@ -886,6 +1069,36 @@
                 </div>
               </div>
 
+              {/* 宏观跨月四阶段双轨流程图 */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                <div className="p-3 rounded-xl bg-amber-50/90 border-l-4 border-l-amber-500 border border-amber-200">
+                  <div className="text-amber-900 font-bold">PHASE 1 · 当前实盘锚点</div>
+                  <div className="text-amber-700 font-extrabold text-sm mt-1">现价: ${curP.toFixed(2)}</div>
+                  <div className="text-[11px] text-amber-800 mt-1">日内转弱支撑: ${metrics.pdfTrack.pivot.toFixed(2)}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-purple-50/90 border-l-4 border-l-purple-600 border border-purple-200">
+                  <div className="text-purple-900 font-bold">PHASE 2 · 11/18 震荡中继</div>
+                  <div className="text-purple-700 font-extrabold text-sm mt-1">
+                    PDF轨 ${metrics.pdfTrack.p1118.toFixed(2)} | 磨损轨 ${metrics.lockedTrack.p1118.toFixed(2)}
+                  </div>
+                  <div className="text-[11px] text-purple-800 mt-1">财报消化后回撤中继，空单减半锁利</div>
+                </div>
+                <div className="p-3 rounded-xl bg-blue-50/90 border-l-4 border-l-blue-600 border border-blue-300 shadow-sm">
+                  <div className="text-blue-900 font-bold">PHASE 3 · 11/26 终极黄金坑</div>
+                  <div className="text-blue-700 font-extrabold text-sm mt-1">
+                    PDF轨 ${metrics.pdfTrack.p1126.toFixed(2)} | 磨损轨 ${metrics.lockedTrack.p1126.toFixed(2)}
+                  </div>
+                  <div className="text-[11px] text-blue-900 mt-1 font-semibold">🎯 W底黄金右脚，战略级满仓抄底点</div>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-50/90 border-l-4 border-l-emerald-600 border border-emerald-200">
+                  <div className="text-emerald-900 font-bold">PHASE 4 · 12/10 跨年主升峰</div>
+                  <div className="text-emerald-700 font-extrabold text-sm mt-1">
+                    PDF轨 ${metrics.pdfTrack.p1210.toFixed(2)} | 磨损轨 ${metrics.lockedTrack.p1210.toFixed(2)}
+                  </div>
+                  <div className="text-[11px] text-emerald-800 mt-1">🚀 圣诞跨年主升浪波峰兑现区</div>
+                </div>
+              </div>
+
               <div className="w-full overflow-x-auto">
                 <svg viewBox={`0 0 ${W} ${H1 + H2 + 20}`} className="w-full h-auto select-none">
                   <rect x={PAD_L} y={20} width={W - PAD_L - PAD_R} height={H1 - 45} fill="#FAFAFA" stroke="#CBD5E1" strokeWidth="1" />
@@ -909,7 +1122,6 @@
 
                   <line x1={nowX} y1={20} x2={nowX} y2={H1 - 25} stroke="#DC2626" strokeDasharray="6 3" strokeWidth="1.8" />
 
-                  {/* 10/14 原始未折价理论轨迹 (灰色点线) */}
                   <polyline
                     fill="none"
                     stroke="#94A3B8"
@@ -918,7 +1130,6 @@
                     points={cfg.theoCurve.map(d => `${xOf(d[0])},${y1Of(d[1])}`).join(" ")}
                   />
 
-                  {/* 真实历史 K 线收盘价 (黑色实线) */}
                   <polyline
                     fill="none"
                     stroke="#0F172A"
@@ -926,7 +1137,6 @@
                     points={histPts.map(d => `${xOf(d[0])},${y1Of(d[1])}`).join(" ")}
                   />
 
-                  {/* 做市商两层扫损猎杀带 */}
                   <rect
                     x={nowX}
                     y={y1Of(metrics.pdfTrack.sweepHigh)}
@@ -938,7 +1148,6 @@
                   <line x1={nowX} y1={y1Of(metrics.pdfTrack.neckHigh)} x2={shortEndX} y2={y1Of(metrics.pdfTrack.neckHigh)} stroke="#E11D48" strokeWidth="1.5" />
                   <line x1={nowX} y1={y1Of(metrics.pdfTrack.pivot)} x2={shortEndX} y2={y1Of(metrics.pdfTrack.pivot)} stroke="#D97706" strokeDasharray="4 3" strokeWidth="1.4" />
 
-                  {/* 🛡️ 轨迹二：3x杠杆磨损锁锚对照轨 (紫色虚线，11/26 -> $42.35) */}
                   {(cycleEngine === "dual" || cycleEngine === "locked") && cfg.betaDecay > 0 && (
                     <g>
                       <polyline
@@ -963,7 +1172,6 @@
                     </g>
                   )}
 
-                  {/* 💎 轨迹一：原始 PDF 乖离均值回归动态轨 (皇家蓝粗虚线，100% 还原 V3.5 PDF 图) */}
                   {(cycleEngine === "dual" || cycleEngine === "pdf") && (
                     <g>
                       <polyline
@@ -993,7 +1201,6 @@
                     当前实盘锚点: ${curP.toFixed(2)}
                   </text>
 
-                  {/* 副图：相对当前涨跌幅 (%) */}
                   <g transform={`translate(0, ${H1 + 5})`}>
                     <rect x={PAD_L} y={10} width={W - PAD_L - PAD_R} height={H2 - 35} fill="#FAFAFA" stroke="#CBD5E1" strokeWidth="1" />
                     <line x1={PAD_L} y1={y2Of(0)} x2={W - PAD_R} y2={y2Of(0)} stroke="#64748B" strokeDasharray="3 3" strokeWidth="1" />
@@ -1041,97 +1248,6 @@
                       </text>
                     ))}
                   </g>
-                </svg>
-              </div>
-            </div>
-          )}
-
-          {/* ================= 日内 24H 分时实时推演模块 ================= */}
-          {(viewMode === "both" || viewMode === "intraday") && (
-            <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-              <div className="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 text-xs font-bold rounded bg-indigo-600 text-white">LIVE 日内分时雷达</span>
-                  <h2 className="text-base md:text-lg font-bold text-slate-900">
-                    {ticker} 今日 24H 分时 + 今晚 22:30 美股正盘剧本推演
-                  </h2>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: "A", name: "🎯 剧本A: 摸高理论轨 ($65~$66.5) ➔ 正盘派发回踩均线 (75% 主推)", cls: "bg-indigo-600 text-white" },
-                    { id: "B", name: "🚀 剧本B: 高位强势横盘换手 (15%)", cls: "bg-emerald-600 text-white" },
-                    { id: "C", name: "⚠️ 剧本C: 开盘多杀多直接回补盘前缺口 (10%)", cls: "bg-amber-600 text-white" }
-                  ].map(sc => (
-                    <button
-                      key={sc.id}
-                      onClick={() => setIntraScenario(sc.id)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
-                        intraScenario === sc.id ? sc.cls + " shadow" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {sc.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="w-full overflow-x-auto">
-                <svg viewBox={`0 0 ${intradayData.W} ${intradayData.H}`} className="w-full h-auto select-none">
-                  <rect x={intradayData.PAD_L} y={intradayData.PAD_T} width={intradayData.W - intradayData.PAD_L - intradayData.PAD_R} height={intradayData.H - intradayData.PAD_T - intradayData.PAD_B} fill="#0F172A" rx="8" />
-                  <rect x={intradayData.xOf(10)} y={intradayData.PAD_T} width={intradayData.xOf(17) - intradayData.xOf(10)} height={intradayData.H - intradayData.PAD_T - intradayData.PAD_B} fill="#1E293B" opacity="0.75" />
-                  <text x={intradayData.xOf(10) + 10} y={intradayData.PAD_T + 18} fontSize="11" fontWeight="bold" fill="#94A3B8" className="font-mono">
-                    🇺🇸 22:30 美股正盘开盘决战区 (Regular Session)
-                  </text>
-
-                  {[0, 0.25, 0.5, 0.75, 1].map((r, i) => {
-                    const py = intradayData.PAD_T + r * (intradayData.H - intradayData.PAD_T - intradayData.PAD_B);
-                    const pVal = intradayData.maxY - r * (intradayData.maxY - intradayData.minY);
-                    return (
-                      <g key={i}>
-                        <line x1={intradayData.PAD_L} y1={py} x2={intradayData.W - intradayData.PAD_R} y2={py} stroke="#334155" strokeDasharray="3 3" strokeWidth="0.8" />
-                        <text x={intradayData.PAD_L - 8} y={py + 4} textAnchor="end" fontSize="11" fill="#475569" className="font-mono font-semibold">
-                          ${pVal.toFixed(2)}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  <rect x={intradayData.PAD_L} y={intradayData.yOf(intradayData.majorSupHigh)} width={intradayData.W - intradayData.PAD_L - intradayData.PAD_R} height={Math.max(4, intradayData.yOf(intradayData.majorSupLow) - intradayData.yOf(intradayData.majorSupHigh))} fill="#F43F5E" opacity="0.22" />
-                  <text x={intradayData.PAD_L + 10} y={intradayData.yOf(intradayData.majorSupHigh) + 13} textAnchor="start" fontSize="10.5" fontWeight="bold" fill="#FDA4AF" className="font-mono">
-                    🔴 极值派发阻力带 (Supply Zone): ${intradayData.majorSupLow.toFixed(2)} ~ ${intradayData.majorSupHigh.toFixed(2)}
-                  </text>
-
-                  <rect x={intradayData.PAD_L} y={intradayData.yOf(intradayData.demandHigh)} width={intradayData.W - intradayData.PAD_L - intradayData.PAD_R} height={Math.max(4, intradayData.yOf(intradayData.demandLow) - intradayData.yOf(intradayData.demandHigh))} fill="#10B981" opacity="0.25" />
-                  <text x={intradayData.PAD_L + 10} y={intradayData.yOf(intradayData.demandHigh) - 6} textAnchor="start" fontSize="10.5" fontWeight="bold" fill="#6EE7B7" className="font-mono">
-                    🟢 正盘回踩承接带 (Demand Zone): ${intradayData.demandLow.toFixed(2)} ~ ${intradayData.demandHigh.toFixed(2)}
-                  </text>
-
-                  <line x1={intradayData.PAD_L} y1={intradayData.yOf(intradayData.vwap)} x2={intradayData.W - intradayData.PAD_R} y2={intradayData.yOf(intradayData.vwap)} stroke="#FBBF24" strokeDasharray="6 4" strokeWidth="1.6" />
-                  <text x={intradayData.PAD_L + 10} y={intradayData.yOf(intradayData.vwap) - 6} fontSize="10.5" fontWeight="bold" fill="#FBBF24" className="font-mono">
-                    🟡 分时均价线 (VWAP 多空轴): ${intradayData.vwap.toFixed(2)}
-                  </text>
-
-                  <line x1={intradayData.xOf(intradayData.nowIdx)} y1={intradayData.PAD_T} x2={intradayData.xOf(intradayData.nowIdx)} y2={intradayData.H - intradayData.PAD_B} stroke="#EF4444" strokeDasharray="5 3" strokeWidth="1.8" />
-                  <line x1={intradayData.xOf(10)} y1={intradayData.PAD_T} x2={intradayData.xOf(10)} y2={intradayData.H - intradayData.PAD_B} stroke="#6366F1" strokeDasharray="4 4" strokeWidth="1.4" />
-
-                  <polyline fill="none" stroke="#10B981" strokeWidth={intraScenario === "B" ? "3.2" : "1.3"} strokeDasharray="4 4" opacity={intraScenario === "B" ? "1" : "0.38"} points={intradayData.pathB.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
-                  <polyline fill="none" stroke="#F97316" strokeWidth={intraScenario === "C" ? "3.2" : "1.3"} strokeDasharray="4 4" opacity={intraScenario === "C" ? "1" : "0.38"} points={intradayData.pathC.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
-                  <polyline fill="none" stroke="#38BDF8" strokeWidth={intraScenario === "A" ? "3.4" : "1.5"} strokeDasharray="7 4" opacity={intraScenario === "A" ? "1" : "0.42"} points={intradayData.pathA.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
-                  <polyline fill="none" stroke="#F8FAFC" strokeWidth="2.8" points={intradayData.pastPts.map(d => `${intradayData.xOf(d[0])},${intradayData.yOf(d[1])}`).join(" ")} />
-
-                  <circle cx={intradayData.xOf(intradayData.nowIdx)} cy={intradayData.yOf(curP)} r="6" fill="#EF4444" stroke="#FEF2F2" strokeWidth="2" />
-                  <g transform={`translate(${intradayData.xOf(intradayData.nowIdx)}, ${intradayData.yOf(curP) - 22})`}>
-                    <rect x="-68" y="-12" width="136" height="20" rx="5" fill="#0F172A" stroke="#EF4444" strokeWidth="1.2" opacity="0.92" />
-                    <text x="0" y="2" textAnchor="middle" fontSize="11" fontWeight="bold" fill="#FCA5A5" className="font-mono">
-                      当前锚点: ${curP.toFixed(2)}
-                    </text>
-                  </g>
-
-                  {intradayData.slots.map((lbl, idx) => (
-                    <text key={idx} x={intradayData.xOf(idx)} y={intradayData.H - 10} textAnchor="middle" fontSize="10.5" fontWeight={lbl === "NOW" || lbl === "22:30" ? "bold" : "normal"} fill={lbl === "NOW" ? "#EF4444" : (lbl === "22:30" ? "#818CF8" : "#64748B")} className="font-mono">
-                      {lbl}
-                    </text>
-                  ))}
                 </svg>
               </div>
             </div>

@@ -51,15 +51,15 @@
       SOXL: {
         name: "3倍做多半导体ETF (高危杠杆)",
         isInverse: false,
-        leftFootClose: 40.87, regClose: 56.06, intraHigh: 66.11, intraLow: 55.61, fixedVwap: 61.65,
+        leftFootClose: 40.87, regClose: 56.06, intraHigh: 65.31, intraLow: 62.33, fixedVwap: 63.32,
         minP: 32.0, maxP: 82.0, step: 0.1,
         theoToday: 66.50, betaDecay: 0.125,
-        lockedMorningPts: [56.06, 57.80, 59.31, 61.58, 63.84, 66.11, 65.20, 64.30],
+        lockedMorningPts: [56.06, 59.80, 61.65, 62.50, 64.10, 65.31, 64.39, 64.45],
         presets: [
           { label: "11/09锚点: $56.20", val: 56.20, baseTheo: 70.33, style: "bg-slate-50 border-slate-200 text-slate-700" },
           { label: "昨正盘收: $56.06", val: 56.06, baseTheo: 66.50, style: "bg-indigo-50 border-indigo-200 text-indigo-700" },
           { label: "当前盘前: $64.30", val: 64.30, baseTheo: 66.50, style: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-          { label: "盘前极值: $66.11", val: 66.11, baseTheo: 66.50, style: "bg-amber-50 border-amber-200 text-amber-700" }
+          { label: "盘前最高: $65.31", val: 65.31, baseTheo: 66.50, style: "bg-amber-50 border-amber-200 text-amber-700" }
         ],
         hist: [
           ["08/31", 118], ["09/07", 106], ["09/14", 102], ["09/21", 152], ["09/28", 142],
@@ -80,8 +80,8 @@
           neck: [61.48 / 56.20, 62.23 / 56.20],
           sweep: [62.90 / 56.20, 63.74 / 56.20]
         },
-        phaseDesc: "【触及周期系统逻辑理论天花板 ($66.50) · 摸顶派发回落相】盘前摸高 $66.11 已兑现理论目标，开启向 11/18 ($57.98) 均值回归",
-        ironRule: "周期系统逻辑理论裁决：盘前 $66.11 已撞上今日周期理论轨 ($66.50)！今晚正盘任何向 $64.8~$65.5 的反抽均为诱多逃命点，跌破 VWAP ($61.65) 将加速回测 $57.6~$59.0 中继带！"
+        phaseDesc: "【触及周期系统逻辑理论天花板 ($66.50) · 摸顶派发回落相】盘前摸高 $65.31 逼近理论天花板 ($66.50)，开启向 11/18 ($57.98) 均值回归",
+        ironRule: "周期系统逻辑理论裁决：盘前最高 $65.31 距今日周期理论轨 ($66.50) 仅差 $1.19！警惕开盘诱多刺向 $65.5~$66.5 完成最后派发，随后跌破真实 VWAP ($63.32) 将加速回测 $57.6~$59.0 中继带！"
       },
       SOXS: {
         name: "3倍做空半导体ETF (反向对冲猎手)",
@@ -516,7 +516,7 @@
           majorSupHigh = Math.max(lockedHigh, cfg.theoToday);
           demandLow = Math.max(cfg.regClose * 1.028, metrics.sysTrack.p1118 * 0.995);
           demandHigh = Math.max(cfg.regClose * 1.052, metrics.sysTrack.p1118 * 1.020);
-          microRes = curP + (lockedHigh - curP) * 0.45;
+          microRes = Math.min(cfg.theoToday, Math.max(lockedHigh, curP) + (cfg.theoToday - Math.max(lockedHigh, curP)) * 0.65);
           stopHuntExtreme = cfg.regClose * 1.005;
         } else if (cfg.isInverse) {
           majorSupLow = cfg.regClose * 0.965;
@@ -1020,7 +1020,7 @@
                         已摸高: ${intradayData.lockedHigh.toFixed(2)} (理论${activeTheoNow.toFixed(1)})
                       </div>
                       <div className="text-[11px] text-slate-600 mt-1.5 leading-relaxed">
-                        盘前已撞上周期系统逻辑理论天花板，动能衰竭回落，严禁追高
+                        盘前最高 $65.31 逼近理论天花板($66.50)，留有开盘最后一刺诱多空间
                       </div>
                     </div>
 
@@ -1033,7 +1033,7 @@
                         反抽测试: ${intradayData.microRes.toFixed(2)}
                       </div>
                       <div className="text-[11px] text-rose-800 mt-1.5 font-semibold leading-relaxed">
-                        🚨 开盘脉冲反抽难破盘前高点($66.11)，为多单最后清仓/反手做空点
+                        🚨 警惕开盘假突破 $65.31 刺向 $65.8~$66.5 理论轨，为多单终极逃命/做空点
                       </div>
                     </div>
 
@@ -1046,7 +1046,7 @@
                         失守 VWAP: ${intradayData.vwap.toFixed(2)}
                       </div>
                       <div className="text-[11px] text-amber-900 mt-1.5 font-semibold leading-relaxed">
-                        📉 放量跌穿今日真实分时均价线($61.65)，反抽不过引发盘中多杀多
+                        📉 放量跌穿富途真实分时均价线($63.32)及盘前低点($62.33)，触发多杀多
                       </div>
                     </div>
 

@@ -271,14 +271,32 @@
       const bjtStr = now.toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
       const estStr = now.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour12: false });
       const [h, m, s] = bjtStr.split(":").map(Number);
+      const [eh, em] = estStr.split(":").map(Number);
+      const bjtHM = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+      const estHM = `${String(eh).padStart(2,"0")}:${String(em).padStart(2,"0")}`;
 
-      let minFrom16 = 330;
-      if (h >= 16) minFrom16 = (h - 16) * 60 + m;
-      else if (h < 9) minFrom16 = (h + 8) * 60 + m;
+      let exactMin = 330;
+      if (h >= 16) exactMin = (h - 16) * 60 + m + (s || 0) / 60;
+      else if (h < 5) exactMin = (h + 8) * 60 + m + (s || 0) / 60;
+      else if (h >= 5 && h < 16) exactMin = 780;
 
-      let bestIdx = 8;
-      for (let i = 1; i < INTRA_SLOTS.length - 1; i++) {
-        if (minFrom16 >= INTRA_SLOTS[i].minFrom16) bestIdx = i;
+      exactMin = Math.max(0, Math.min(780, exactMin));
+
+      // 计算连续浮点索引 nowFloatIdx，使红线在两个刻度之间按真实分钟平滑移动
+      let bestIdx = 0;
+      let nowFloatIdx = 0;
+      for (let i = 0; i < INTRA_SLOTS.length - 1; i++) {
+        const m0 = INTRA_SLOTS[i].minFrom16;
+        const m1 = INTRA_SLOTS[i + 1].minFrom16;
+        if (exactMin >= m0 && exactMin <= m1) {
+          bestIdx = i;
+          nowFloatIdx = i + (exactMin - m0) / Math.max(1, m1 - m0);
+          break;
+        }
+      }
+      if (exactMin >= 780) {
+        bestIdx = INTRA_SLOTS.length - 1;
+        nowFloatIdx = INTRA_SLOTS.length - 1;
       }
 
       const curSec = ((h >= 16 ? h - 16 : h + 8) * 3600) + m * 60 + (s || 0);
@@ -288,9 +306,9 @@
         const diff = openSec - curSec;
         countdownText = `距 22:30 美股开盘 ${Math.floor(diff/3600)}h ${Math.floor((diff%3600)/60)}m ${diff%60}s`;
       } else if (h >= 5 && h < 16) {
-        countdownText = "🌙 美股盘后/夜盘休整期";
+        countdownText = "🌙 美股正盘已收盘 (盘后/夜盘期)";
       }
-      return { bjtStr, estStr, nowIdx: bestIdx, countdownText };
+      return { bjtStr, estStr, bjtHM, estHM, nowIdx: bestIdx, nowFloatIdx, exactMin, countdownText };
     }
 
     function computeAll() {
@@ -489,13 +507,16 @@
           baseMorning[k] = cfg.regClose + (baseMorning[k] - cfg.regClose) * ratio;
         }
       }
+      const nowFloatIdx = timeInfo.nowFloatIdx;
       const pastPts = [];
-      for (let i = 0; i < nowIdx; i++) {
-        pastPts.push([i, i < baseMorning.length ? baseMorning[i] : baseMorning[baseMorning.length - 1]]);
+      for (let i = 0; i <= Math.floor(nowFloatIdx); i++) {
+        if (Math.abs(nowFloatIdx - i) < 0.03) break;
+        const fallbackVal = i < baseMorning.length ? baseMorning[i] : parseFloat((baseMorning[baseMorning.length - 1] * 0.4 + curP * 0.6).toFixed(2));
+        pastPts.push([i, fallbackVal]);
       }
-      pastPts.push([nowIdx, curP]);
+      pastPts.push([nowFloatIdx, curP]);
 
-      const pathA = [[nowIdx, curP]], pathB = [[nowIdx, curP]], pathC = [[nowIdx, curP]];
+      const pathA = [[nowFloatIdx, curP]], pathB = [[nowFloatIdx, curP]], pathC = [[nowFloatIdx, curP]];
       const tmplA = isBlowOffTop
         ? [[8,curP*0.998],[9,curP+(microRes-curP)*0.45],[10,microRes],[11,(microRes+vwap)*0.5],[12,vwap*(is3x?0.982:0.995)],[13,(vwap+demandHigh)*0.5],[14,demandHigh],[15,(demandLow+demandHigh)*0.5],[16,demandHigh*0.998]]
         : [[8,curP*0.996],[9,demandHigh*0.995],[10,(demandLow+demandHigh)*0.5],[11,vwap*0.998],[12,vwap*1.018],[13,(vwap+majorSupLow)*0.5],[14,majorSupLow*1.002],[15,(majorSupLow+majorSupHigh)*0.5],[16,majorSupLow*1.005]];
@@ -506,11 +527,11 @@
         ? [[8,curP*0.992],[9,vwap*0.998],[10,demandHigh],[11,demandLow],[12,(demandLow+stopHuntExtreme)*0.5],[13,stopHuntExtreme],[14,demandLow*0.998],[15,demandLow*1.002],[16,demandLow]]
         : [[8,curP*0.990],[9,demandLow*0.995],[10,stopHuntExtreme],[11,demandHigh*1.002],[12,vwap*0.998],[13,vwap*1.008],[14,vwap*1.015],[15,majorSupLow*0.995],[16,vwap*1.012]];
 
-      pathA.push(...tmplA.filter(d => d[0] > nowIdx));
-      pathB.push(...tmplB.filter(d => d[0] > nowIdx));
-      pathC.push(...tmplC.filter(d => d[0] > nowIdx));
+      pathA.push(...tmplA.filter(d => d[0] > nowFloatIdx + 0.08));
+      pathB.push(...tmplB.filter(d => d[0] > nowFloatIdx + 0.08));
+      pathC.push(...tmplC.filter(d => d[0] > nowFloatIdx + 0.08));
 
-      return { nowIdx, openIdx, isBlowOffTop, vwap, demandLow, demandHigh, microRes, majorSupLow, majorSupHigh, stopHuntExtreme, baseMorningPeak: baseMorning[5], pastPts, pathA, pathB, pathC };
+      return { nowIdx, nowFloatIdx, bjtHM: timeInfo.bjtHM, estHM: timeInfo.estHM, openIdx, isBlowOffTop, vwap, demandLow, demandHigh, microRes, majorSupLow, majorSupHigh, stopHuntExtreme, baseMorningPeak: baseMorning[5], pastPts, pathA, pathB, pathC };
     }
 
     function buildIntraSvg(intra, m) {
@@ -566,24 +587,35 @@
         <text x="${PAD_L+10}" y="${yOf(intra.demandHigh)-6}" font-size="10.5" font-weight="bold" fill="#6EE7B7" class="font-mono">🟢 ${intra.isBlowOffTop ? "11/18中继引力与缺口承接带" : "分时需求承接区"}: $${intra.demandLow.toFixed(2)} ~ $${intra.demandHigh.toFixed(2)}</text>
         <line x1="${PAD_L}" y1="${yOf(intra.vwap)}" x2="${W-PAD_R}" y2="${yOf(intra.vwap)}" stroke="#FBBF24" stroke-dasharray="6 4" stroke-width="1.6"/>
         <text x="${PAD_L+10}" y="${yOf(intra.vwap)-6}" font-size="10.5" font-weight="bold" fill="#FBBF24" class="font-mono">🟡 今日真实分时均价线 (Locked VWAP 多空分水岭): $${intra.vwap.toFixed(2)}</text>
-        <line x1="${xOf(intra.nowIdx)}" y1="${PAD_T}" x2="${xOf(intra.nowIdx)}" y2="${H-PAD_B}" stroke="#EF4444" stroke-dasharray="5 3" stroke-width="1.8"/>
+        <line x1="${xOf(intra.nowFloatIdx)}" y1="${PAD_T}" x2="${xOf(intra.nowFloatIdx)}" y2="${H-PAD_B}" stroke="#EF4444" stroke-dasharray="5 3" stroke-width="1.8"/>
         <line x1="${xOf(intra.openIdx)}" y1="${PAD_T}" x2="${xOf(intra.openIdx)}" y2="${H-PAD_B}" stroke="#6366F1" stroke-dasharray="4 4" stroke-width="1.5"/>
         <polyline fill="none" stroke="#10B981" stroke-width="${state.intraScenario==='B'?'3.2':'1.3'}" stroke-dasharray="4 4" opacity="${state.intraScenario==='B'?'1':'0.38'}" points="${intra.pathB.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
         <polyline fill="none" stroke="#F97316" stroke-width="${state.intraScenario==='C'?'3.2':'1.3'}" stroke-dasharray="4 4" opacity="${state.intraScenario==='C'?'1':'0.38'}" points="${intra.pathC.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
         <polyline fill="none" stroke="#38BDF8" stroke-width="${state.intraScenario==='A'?'3.4':'1.5'}" stroke-dasharray="7 4" opacity="${state.intraScenario==='A'?'1':'0.42'}" points="${intra.pathA.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
         <polyline fill="none" stroke="#F8FAFC" stroke-width="2.8" points="${intra.pastPts.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
         <circle cx="${xOf(5)}" cy="${yOf(intra.baseMorningPeak)}" r="4.5" fill="#F43F5E" stroke="#FFF" stroke-width="1"/>
-        <text x="${xOf(5)}" y="${yOf(intra.baseMorningPeak)-10}" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#FDA4AF" class="font-mono">盘前高点: $${intra.baseMorningPeak.toFixed(2)}</text>
-        <circle cx="${xOf(intra.nowIdx)}" cy="${yOf(m.curP)}" r="6" fill="#EF4444" stroke="#FEF2F2" stroke-width="2"/>
-        <g transform="translate(${xOf(intra.nowIdx)}, ${yOf(m.curP)+22})">
-          <rect x="-74" y="-12" width="148" height="20" rx="5" fill="#0F172A" stroke="#EF4444" stroke-width="1.2" opacity="0.95"/>
-          <text x="0" y="2" text-anchor="middle" font-size="11" font-weight="bold" fill="#FCA5A5" class="font-mono">NOW(${INTRA_SLOTS[intra.nowIdx].bjt}): $${m.curP.toFixed(2)}</text>
+        <g transform="translate(${xOf(5)+56}, ${yOf(intra.baseMorningPeak)+4})">
+          <rect x="-52" y="-11" width="104" height="17" rx="4" fill="#0F172A" stroke="#F43F5E" stroke-width="1" opacity="0.92"/>
+          <text x="0" y="1" text-anchor="middle" font-size="10" font-weight="bold" fill="#FDA4AF" class="font-mono">盘前高点:$${intra.baseMorningPeak.toFixed(2)}</text>
+        </g>
+        <circle cx="${xOf(intra.nowFloatIdx)}" cy="${yOf(m.curP)}" r="6" fill="#EF4444" stroke="#FEF2F2" stroke-width="2"/>
+        <g transform="translate(${xOf(intra.nowFloatIdx)}, ${yOf(m.curP)+24})">
+          <rect x="-78" y="-12" width="156" height="20" rx="5" fill="#0F172A" stroke="#EF4444" stroke-width="1.4" opacity="0.96"/>
+          <text x="0" y="2" text-anchor="middle" font-size="11" font-weight="bold" fill="#FCA5A5" class="font-mono">NOW(${intra.bjtHM}): $${m.curP.toFixed(2)}</text>
         </g>
         ${bubbles}
-        ${INTRA_SLOTS.map((s, idx) => `
-          <text x="${xOf(idx)}" y="${H-16}" text-anchor="middle" font-size="10.5" font-weight="${idx===intra.nowIdx||idx===intra.openIdx?'bold':'normal'}" fill="${idx===intra.nowIdx?'#EF4444':(idx===intra.openIdx?'#818CF8':'#94A3B8')}" class="font-mono">${idx===intra.nowIdx?`NOW(${s.bjt})`:s.bjt}</text>
-          <text x="${xOf(idx)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="#475569" class="font-mono">${s.est}E</text>
-        `).join("")}
+        ${INTRA_SLOTS.map((s, idx) => {
+          const isNearNow = Math.abs(idx - intra.nowFloatIdx) < 0.35;
+          return `
+          <text x="${xOf(idx)}" y="${H-16}" text-anchor="middle" font-size="10.5" font-weight="${idx===intra.openIdx?'bold':'normal'}" fill="${idx===intra.openIdx?'#818CF8':'#94A3B8'}" opacity="${isNearNow?'0.25':'1'}" class="font-mono">${s.bjt}</text>
+          <text x="${xOf(idx)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="#475569" opacity="${isNearNow?'0.25':'1'}" class="font-mono">${s.est}E</text>
+          `;
+        }).join("")}
+        <g transform="translate(${xOf(intra.nowFloatIdx)}, ${H-16})">
+          <rect x="-38" y="-11" width="76" height="24" rx="4" fill="#0F172A" stroke="#EF4444" stroke-width="1.2"/>
+          <text x="0" y="0" text-anchor="middle" font-size="10" font-weight="bold" fill="#F87171" class="font-mono">▲${intra.bjtHM}</text>
+          <text x="0" y="10" text-anchor="middle" font-size="8.5" font-weight="bold" fill="#FCA5A5" class="font-mono">${intra.estHM}E</text>
+        </g>
       </svg>`;
     }
 

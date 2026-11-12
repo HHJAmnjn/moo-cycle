@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>【周期系统逻辑理论 V3.8 · 全功能终极集成终端】</title>
+  <title>【周期系统逻辑理论 V3.9 · 24H全天候无瑕集成终端】</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", monospace, sans-serif; background: #F1F5F9; color: #0F172A; margin: 0; }
@@ -17,10 +17,10 @@
 
   <script>
     const ACCESS_PIN = "8888";
-    const AUTH_KEY = "moo_cycle_v38_native_auth";
+    const AUTH_KEY = "moo_cycle_v39_native_auth";
     const TICKER_ORDER = ["SOXL", "SOXS", "TQQQ", "SQQQ", "QQQ", "SPY", "SOXX"];
 
-    // 自然日坐标轴：以 08/31 为 Day 0，1:1 还原每周一自然日间距
+    // 自然日坐标轴：以 08/31 为 Day 0，严格对齐每周一自然日间距
     const MONTH_DAYS = { 8: 0, 9: 31, 10: 61, 11: 92, 12: 122 };
     function dayOf(mmdd) {
       const [m, d] = mmdd.split("/").map(Number);
@@ -31,26 +31,28 @@
       "11/02","11/09","11/16","11/23","11/30","12/07","12/14","12/21","12/28"
     ];
 
+    // ✨ 修复 Bug 3 & 4：升级为真正的 24H 全天候闭环坐标轴 (08:00 亚盘夜盘 -> 16:00 盘前 -> 22:30 正盘 -> 05:00 收盘 -> 08:00 盘后)
     const INTRA_SLOTS = [
-      { bjt: "16:00", est: "03:00", minFrom16: 0 },
-      { bjt: "17:00", est: "04:00", minFrom16: 60 },
-      { bjt: "18:00", est: "05:00", minFrom16: 120 },
-      { bjt: "19:00", est: "06:00", minFrom16: 180 },
-      { bjt: "20:00", est: "07:00", minFrom16: 240 },
-      { bjt: "20:30", est: "07:30", minFrom16: 270 },
-      { bjt: "21:00", est: "08:00", minFrom16: 300 },
-      { bjt: "21:30", est: "08:30", minFrom16: 330 },
-      { bjt: "22:00", est: "09:00", minFrom16: 360 },
-      { bjt: "22:30", est: "09:30", minFrom16: 390 },
-      { bjt: "23:15", est: "10:15", minFrom16: 435 },
-      { bjt: "00:00", est: "11:00", minFrom16: 480 },
-      { bjt: "01:00", est: "12:00", minFrom16: 540 },
-      { bjt: "02:00", est: "13:00", minFrom16: 600 },
-      { bjt: "03:00", est: "14:00", minFrom16: 660 },
-      { bjt: "04:00", est: "15:00", minFrom16: 720 },
-      { bjt: "05:00", est: "16:00", minFrom16: 780 }
+      { bjt: "08:00", est: "19:00", minFrom08: 0 },    // idx 0: 亚盘夜盘开启
+      { bjt: "10:30", est: "21:30", minFrom08: 150 },  // idx 1: 亚盘早盘 (当前夜盘反抽高点区)
+      { bjt: "13:30", est: "00:30", minFrom08: 330 },  // idx 2: 亚盘午后
+      { bjt: "16:00", est: "03:00", minFrom08: 480 },  // idx 3: 欧美盘前开启
+      { bjt: "18:00", est: "05:00", minFrom08: 600 },  // idx 4: 欧盘盘前换手
+      { bjt: "20:00", est: "07:00", minFrom08: 720 },  // idx 5: 美盘前热身
+      { bjt: "21:30", est: "08:30", minFrom08: 810 },  // idx 6: 盘前宏观数据窗
+      { bjt: "22:30", est: "09:30", minFrom08: 870 },  // idx 7: 美股正盘开盘 (openIdx = 7)
+      { bjt: "23:15", est: "10:15", minFrom08: 915 },  // idx 8: 开盘决战窗
+      { bjt: "00:00", est: "11:00", minFrom08: 960 },  // idx 9: 正盘早盘收官
+      { bjt: "01:00", est: "12:00", minFrom08: 1020 }, // idx 10: 午盘多空分水岭 (精准对应 01:00 气泡)
+      { bjt: "02:00", est: "13:00", minFrom08: 1080 }, // idx 11: 午后趋势推进
+      { bjt: "03:00", est: "14:00", minFrom08: 1140 }, // idx 12: 尾盘前哨
+      { bjt: "04:00", est: "15:00", minFrom08: 1200 }, // idx 13: 尾盘回归目标区 (精准对应 04:00 气泡)
+      { bjt: "05:00", est: "16:00", minFrom08: 1260 }, // idx 14: 美股正盘收盘 (closeIdx = 14)
+      { bjt: "06:30", est: "17:30", minFrom08: 1350 }, // idx 15: 盘后交易段
+      { bjt: "08:00+",est: "19:00", minFrom08: 1440 }  // idx 16: 24H 闭环终点
     ];
 
+    // ✨ 修复 Bug 8：正式载入 11/11 正盘真实收盘价 $66.030
     const SOXL_DAILY_HIST = [
       ["08/31",108.5],["09/01",110.2],["09/02",114.8],["09/03",118.5],["09/04",121.0],
       ["09/07",121.5],["09/08",124.8],["09/09",115.2],["09/10",122.0],["09/11",116.5],
@@ -62,14 +64,15 @@
       ["10/19",97.5], ["10/20",103.2],["10/21",81.8], ["10/22",83.5], ["10/23",86.2],
       ["10/26",89.0], ["10/27",101.5],["10/28",107.5],["10/29",102.0],["10/30",74.5],
       ["11/02",68.5], ["11/03",73.2], ["11/04",68.0], ["11/05",40.87],["11/06",46.50],
-      ["11/09",56.20],["11/10",56.06]
+      ["11/09",56.20],["11/10",56.06],["11/11",66.03]
     ];
 
-    function buildDailyHist(anchor1012, anchor1028, anchor1105, anchor1109, anchor1110, beta, isInv) {
+    function buildDailyHist(anchor1012, anchor1105, anchor1109, anchor1110, anchor1111, isInv) {
       return SOXL_DAILY_HIST.map(([dt, v]) => {
         if (dt === "11/05") return [dt, anchor1105];
         if (dt === "11/09") return [dt, anchor1109];
         if (dt === "11/10") return [dt, anchor1110];
+        if (dt === "11/11") return [dt, anchor1111];
         const rel = (v - 40.87) / (164.2 - 40.87);
         if (!isInv) {
           const span = (anchor1012 / 0.72) - anchor1105;
@@ -84,172 +87,173 @@
     const RAW_DB = {
       SOXL: {
         name: "3倍做多半导体ETF (高危杠杆)", isInverse: false,
-        leftFootClose: 40.87, regClose: 56.06, preHigh: 65.31, intraHigh: 68.80, intraLow: 60.86, fixedVwap: 64.20,
-        minP: 32.0, maxP: 82.0, step: 0.1, theoToday: 66.50, betaDecay: 0.125,
-        gammaCorridor: [55.0, 68.8],
-        // 16:00昨收 -> 20:30盘前高点65.31 -> 22:30开盘64.14后洗盘至60.86 -> 23:15拉升65.80 -> 00:00冲上67.56 -> 01:00极值68.80
-        lockedMorningPts: [56.06, 59.80, 61.65, 62.50, 64.10, 65.31, 64.39, 64.45, 64.14, 60.86, 65.80, 67.56, 68.80],
+        leftFootClose: 40.87, regClose: 66.03, postClose: 62.70, preHigh: 65.53, intraHigh: 69.73, intraLow: 60.70, fixedVwap: 63.80,
+        minP: 32.0, maxP: 82.0, step: 0.1, theoToday: 64.65, betaDecay: 0.125,
+        gammaCorridor: [55.0, 69.73],
+        // 对应 24H 坐标轴前段轨迹：08:00盘后收62.70 -> 10:30夜盘冲高65.53回落65.18 -> 13:30亚盘64.60 -> 16:00盘前63.80
+        lockedMorningPts: [62.70, 65.18, 64.60, 63.85, 63.50, 64.10, 64.40, 64.20, 64.80, 63.20, 62.40, 61.20, 60.50, 59.40, 59.80],
         presets: [
           { label: "①11/05深坑(-48%): $40.87", val: 40.87, baseTheo: 79.23, anchorDt: "11/05" },
           { label: "②11/09原图(-20%): $56.20", val: 56.20, baseTheo: 70.33, anchorDt: "11/09" },
-          { label: "③今日理论位(0%): $66.50", val: 66.50, baseTheo: 66.50, anchorDt: "11/11" },
-          { label: "④Gamma极值(阶段1): $68.80", val: 68.80, baseTheo: 66.50, anchorDt: "11/11" },
-          { label: "⑤刺针钝化(阶段2): $67.20", val: 67.20, baseTheo: 66.50, anchorDt: "11/11" },
-          { label: "⑥破VWAP转空(阶段3): $63.20", val: 63.20, baseTheo: 66.50, anchorDt: "11/11" }
+          { label: "③昨正盘极值(阶段1): $69.73", val: 69.73, baseTheo: 66.50, anchorDt: "11/11" },
+          { label: "④今日亚盘夜盘(阶段2): $65.18", val: 65.18, baseTheo: 64.65, anchorDt: "11/12" },
+          { label: "⑤昨盘后破位价(阶段3): $62.70", val: 62.70, baseTheo: 64.65, anchorDt: "11/12" },
+          { label: "⑥击穿颈线加速: $60.70", val: 60.70, baseTheo: 64.65, anchorDt: "11/12" }
         ],
         hist: SOXL_DAILY_HIST,
         theoCurve: [
           ["10/14",105.5],["10/15",93.2],["10/19",84.5],["10/21",81.8],["10/26",89.0],["10/28",98.0],
           ["10/30",108.0],["11/02",103.5],["11/05",79.23],["11/06",76.17],["11/09",70.33],["11/10",68.40],
-          ["11/11",66.50],["11/13",62.80],["11/16",60.10],["11/18",57.98],["11/20",54.60],["11/23",51.80],
+          ["11/11",66.50],["11/12",64.65],["11/13",62.80],["11/16",60.10],["11/18",57.98],["11/20",54.60],["11/23",51.80],
           ["11/26",48.40],["11/30",59.50],["12/03",68.50],["12/07",74.20],["12/10",75.71],["12/14",68.00],
           ["12/18",56.00],["12/23",52.50],["12/28",50.60]
         ],
         reversionWeights: {
-          "11/05":1.0, "11/09":0.85, "11/10":0.80, "11/11":0.75, "11/13":0.55, "11/16":0.42, "11/18":0.2568,
-          "11/20":0.19, "11/23":0.14, "11/26":0.0905, "11/30":0.05, "12/03":0.03, "12/07":0.015,
-          "12/10":0.0072, "12/14":0.004, "12/18":0.002, "12/23":0.001, "12/28":0.0
+          "11/05":1.00, "11/09":1.00, "11/10":1.00, "11/11":1.00, "11/12":1.00,
+          "11/13":0.65, "11/16":0.42, "11/18":0.2568, "11/20":0.19, "11/23":0.14,
+          "11/26":0.0905, "11/30":0.05, "12/03":0.03, "12/07":0.015, "12/10":0.0072,
+          "12/14":0.004, "12/18":0.002, "12/23":0.001, "12/28":0.0
         },
         mmRadarRatios: { pivot: 54.40/56.20, neck: [61.48/56.20, 62.23/56.20], sweep: [62.90/56.20, 63.74/56.20] },
-        phaseDesc: "【周期系统逻辑理论 · 末日负Gamma极值扫荡相】盘中刺穿 $66.50 理论天花板摸高 $68.80，正乖离超调 +3.5%，静待右侧破位信号",
-        ironRule: "周期系统逻辑理论铁律：$40.87 至 $66.50 属超跌报复性回归，冲上 $68.80 为末日 Gamma 惯性超调！未跌回 $67.50 下方前严禁左侧死扛，跌破 VWAP ($64.20) 右侧追空直看 11/18 ($57.98)！"
+        phaseDesc: "【周期系统逻辑理论 · 摸顶派发与亚盘缩量右肩相】昨正盘摸高 $69.73 收于 $66.03，盘后暴跌至 $62.70；今早亚盘缩量反抽 $65.18 构筑分时右肩",
+        ironRule: "周期系统逻辑理论铁律：昨夜正盘收盘 ($66.03) 被精准压制在 11/11 理论天花板 ($66.50) 下方！今日亚盘 1/9 缩量反抽 $65.18~$65.53 属诱多右肩，跌破 $63.80 (VWAP) 与 $62.70 (盘后基准) 将直扑 $60.70 颈线及 11/18 ($57.98)！"
       },
       SOXS: {
         name: "3倍做空半导体ETF (反向对冲猎手)", isInverse: true,
-        leftFootClose: 28.50, regClose: 20.85, preHigh: 18.65, intraHigh: 21.05, intraLow: 17.15, fixedVwap: 18.45,
-        minP: 13.0, maxP: 42.0, step: 0.1, theoToday: 18.80, betaDecay: 0.08,
-        gammaCorridor: [17.1, 21.0],
-        lockedMorningPts: [20.85, 20.10, 19.50, 18.80, 18.10, 17.65, 17.80, 18.05, 18.15, 19.10, 17.90, 17.45, 17.15],
+        leftFootClose: 28.50, regClose: 17.85, postClose: 18.75, preHigh: 19.35, intraHigh: 21.05, intraLow: 16.85, fixedVwap: 18.35,
+        minP: 13.0, maxP: 42.0, step: 0.1, theoToday: 19.50, betaDecay: 0.08,
+        gammaCorridor: [16.85, 21.0],
+        lockedMorningPts: [18.75, 18.02, 18.25, 18.50, 18.60, 18.40, 18.30, 18.45, 18.10, 18.70, 19.10, 19.50, 19.85, 20.30, 20.15],
         presets: [
-          { label: "昨正盘收: $20.85", val: 20.85, baseTheo: 18.80, anchorDt: "11/11" },
-          { label: "当前极值底坑: $17.15", val: 17.15, baseTheo: 18.80, anchorDt: "11/11" },
-          { label: "右侧突破VWAP: $18.60", val: 18.60, baseTheo: 18.80, anchorDt: "11/11" },
-          { label: "11/18中继目标: $24.80", val: 24.80, baseTheo: 18.80, anchorDt: "11/11" }
+          { label: "昨正盘收: $17.85", val: 17.85, baseTheo: 18.80, anchorDt: "11/11" },
+          { label: "今日亚盘回踩: $18.02", val: 18.02, baseTheo: 19.50, anchorDt: "11/12" },
+          { label: "昨盘后冲高: $18.75", val: 18.75, baseTheo: 19.50, anchorDt: "11/12" },
+          { label: "11/18中继目标: $24.80", val: 24.80, baseTheo: 19.50, anchorDt: "11/12" }
         ],
-        hist: buildDailyHist(12.6, 14.5, 28.5, 20.8, 20.85, 3, true),
+        hist: buildDailyHist(12.6, 28.5, 20.8, 20.85, 17.85, true),
         theoCurve: [
           ["10/14",14.2],["10/19",18.5],["10/21",19.2],["10/26",17.8],["10/30",14.5],["11/05",18.20],
-          ["11/09",18.50],["11/11",18.80],["11/13",20.60],["11/16",22.40],["11/18",24.80],["11/23",27.50],
+          ["11/09",18.50],["11/11",18.80],["11/12",19.50],["11/13",20.60],["11/16",22.40],["11/18",24.80],["11/23",27.50],
           ["11/26",29.50],["11/30",24.20],["12/03",21.50],["12/07",18.50],["12/10",17.20],["12/18",22.00],["12/28",24.10]
         ],
-        reversionWeights: { "11/09":1.0, "11/11":0.75, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        reversionWeights: { "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
         mmRadarRatios: { pivot: 0.95, neck: [1.08, 1.12], sweep: [1.18, 1.25] },
-        phaseDesc: "【反向镜像·空头黄金买坑相】随 SOXL 冲至 $68.80 极值，SOXS 砸入 $17.15 极限超卖黄金坑",
-        ironRule: "周期系统逻辑理论镜像铁律：等待 SOXL 跌回 $67.50 下方或 SOXS 放量站上 VWAP ($18.45) 时右侧重仓切入，波段目标直指 11/18 ($24.80) 与 11/26 ($29.50)！"
+        phaseDesc: "【反向镜像·空头黄金买坑筑右脚相】昨夜探明 $16.85 极限底后盘后大涨至 $18.75，今日亚盘回踩 $18.02 构筑黄金右脚买点",
+        ironRule: "周期系统逻辑理论镜像铁律：今日亚盘回踩 $17.80~$18.15 即为右侧分批建仓良机，放量站稳 VWAP ($18.35) 后主升上看 11/18 ($24.80) 与 11/26 ($29.50)！"
       },
       TQQQ: {
         name: "3倍做多纳指100ETF (大科技3x先锋)", isInverse: false,
-        leftFootClose: 78.50, regClose: 84.00, preHigh: 88.50, intraHigh: 90.40, intraLow: 83.80, fixedVwap: 87.20,
-        minP: 62.0, maxP: 115.0, step: 0.2, theoToday: 92.50, betaDecay: 0.09,
+        leftFootClose: 78.50, regClose: 89.60, postClose: 88.20, preHigh: 89.10, intraHigh: 91.20, intraLow: 83.80, fixedVwap: 88.40,
+        minP: 62.0, maxP: 115.0, step: 0.2, theoToday: 90.80, betaDecay: 0.09,
         gammaCorridor: [82.0, 92.5],
-        lockedMorningPts: [84.00, 84.80, 85.60, 86.50, 87.40, 88.50, 87.80, 87.60, 88.20, 86.50, 88.90, 89.80, 90.20],
+        lockedMorningPts: [88.20, 88.90, 88.60, 88.40, 88.20, 88.50, 88.70, 88.60, 89.20, 88.00, 87.20, 86.40, 85.80, 85.10, 85.40],
         presets: [
-          { label: "左脚支撑: $78.50", val: 78.50, baseTheo: 92.50, anchorDt: "11/11" },
-          { label: "当前锚点: $90.20", val: 90.20, baseTheo: 92.50, anchorDt: "11/11" },
-          { label: "11/18中继: $82.50", val: 82.50, baseTheo: 92.50, anchorDt: "11/11" },
-          { label: "12/10跨年峰: $99.50", val: 99.50, baseTheo: 92.50, anchorDt: "11/11" }
+          { label: "左脚支撑: $78.50", val: 78.50, baseTheo: 98.40, anchorDt: "11/05" },
+          { label: "当前亚盘: $88.90", val: 88.90, baseTheo: 90.80, anchorDt: "11/12" },
+          { label: "11/18中继: $82.50", val: 82.50, baseTheo: 90.80, anchorDt: "11/12" },
+          { label: "12/10跨年峰: $99.50", val: 99.50, baseTheo: 90.80, anchorDt: "11/12" }
         ],
-        hist: buildDailyHist(102.0, 103.0, 78.5, 84.2, 84.0, 3, false),
+        hist: buildDailyHist(102.0, 78.5, 84.2, 84.0, 89.6, false),
         theoCurve: [
           ["10/14",104.0],["10/19",94.0],["10/21",92.0],["10/26",99.0],["10/30",110.0],["11/05",98.40],
-          ["11/09",95.0],["11/11",92.5],["11/13",88.5],["11/16",85.5],["11/18",82.5],["11/23",78.5],
+          ["11/09",95.0],["11/11",92.5],["11/12",90.8],["11/13",88.5],["11/16",85.5],["11/18",82.5],["11/23",78.5],
           ["11/26",76.2],["11/30",84.0],["12/03",91.0],["12/07",97.2],["12/10",99.5],["12/18",87.0],["12/28",84.0]
         ],
-        reversionWeights: { "11/09":1.0, "11/11":0.75, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
         mmRadarRatios: { pivot: 0.97, neck: [1.04, 1.06], sweep: [1.07, 1.10] },
-        phaseDesc: "【周期系统逻辑理论乖离回归相】跟随 QQQ 修复负乖离逼近 $92.50 理论轨，下半月仍需回踩 11/26 黄金坑 ($76.2 / 扣磨损 $69.3)",
-        ironRule: "反抽逼近 $91~$92.5 理论轨减仓 50%，静待 11/26 黄金坑右脚确立后满仓博弈 12/10 跨年主升浪！"
+        phaseDesc: "【周期系统逻辑理论 · 触及理论轨回落相】昨日冲高 $91.20 触及理论天花板，下半月开启向 11/18 ($82.5) 与 11/26 黄金坑 ($76.2 / 扣磨损 $69.3) 均值回归",
+        ironRule: "反抽逼近 $90~$91 理论轨减仓 50%，静待 11/26 黄金坑右脚确立后满仓博弈 12/10 跨年主升浪！"
       },
       SQQQ: {
         name: "3倍做空纳指100ETF (大科技空头对冲)", isInverse: true,
-        leftFootClose: 19.20, regClose: 17.65, preHigh: 17.20, intraHigh: 17.80, intraLow: 16.20, fixedVwap: 16.95,
-        minP: 12.0, maxP: 28.0, step: 0.1, theoToday: 16.20, betaDecay: 0.06,
-        gammaCorridor: [16.2, 19.0],
-        lockedMorningPts: [17.65, 17.45, 17.25, 17.05, 16.85, 16.65, 16.80, 16.90, 16.85, 17.10, 16.60, 16.40, 16.30],
+        leftFootClose: 19.20, regClose: 16.35, postClose: 16.65, preHigh: 16.80, intraHigh: 17.80, intraLow: 16.10, fixedVwap: 16.55,
+        minP: 12.0, maxP: 28.0, step: 0.1, theoToday: 16.55, betaDecay: 0.06,
+        gammaCorridor: [16.1, 19.0],
+        lockedMorningPts: [16.65, 16.48, 16.55, 16.60, 16.65, 16.58, 16.52, 16.55, 16.40, 16.68, 16.85, 17.05, 17.20, 17.40, 17.30],
         presets: [
-          { label: "前期高点: $19.20", val: 19.20, baseTheo: 16.20, anchorDt: "11/11" },
-          { label: "当前现价: $16.30", val: 16.30, baseTheo: 16.20, anchorDt: "11/11" },
-          { label: "11/18中继: $18.20", val: 18.20, baseTheo: 16.20, anchorDt: "11/11" },
-          { label: "11/26止盈峰: $19.80", val: 19.80, baseTheo: 16.20, anchorDt: "11/11" }
+          { label: "前期高点: $19.20", val: 19.20, baseTheo: 16.55, anchorDt: "11/12" },
+          { label: "当前现价: $16.48", val: 16.48, baseTheo: 16.55, anchorDt: "11/12" },
+          { label: "11/18中继: $18.20", val: 18.20, baseTheo: 16.55, anchorDt: "11/12" },
+          { label: "11/26止盈峰: $19.80", val: 19.80, baseTheo: 16.55, anchorDt: "11/12" }
         ],
-        hist: buildDailyHist(13.5, 14.5, 19.2, 17.6, 17.65, 3, true),
+        hist: buildDailyHist(13.5, 19.2, 17.6, 17.65, 16.35, true),
         theoCurve: [
           ["10/14",14.2],["10/19",16.0],["10/21",16.4],["10/26",15.2],["10/30",13.6],["11/05",15.10],
-          ["11/09",15.8],["11/11",16.2],["11/13",16.9],["11/16",17.5],["11/18",18.2],["11/23",19.1],
+          ["11/09",15.8],["11/11",16.2],["11/12",16.55],["11/13",16.9],["11/16",17.5],["11/18",18.2],["11/23",19.1],
           ["11/26",19.8],["11/30",17.8],["12/03",16.5],["12/07",15.4],["12/10",14.9],["12/18",17.1],["12/28",17.8]
         ],
-        reversionWeights: { "11/09":1.0, "11/11":0.75, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        reversionWeights: { "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
         mmRadarRatios: { pivot: 0.96, neck: [1.06, 1.09], sweep: [1.12, 1.16] },
-        phaseDesc: "【反向镜像·纳指空头蓄势相】随 QQQ 反抽回落至理论轨支撑 ($16.20)，等待 11/26 脉冲波峰",
+        phaseDesc: "【反向镜像·纳指空头蓄势相】随 QQQ 触及 $692 理论天花板遇阻，SQQQ 在 $16.10~$16.50 探明底部支撑，等待 11/26 脉冲波峰",
         ironRule: "11/26 纳指双底右脚成型当日 ($19.80) 必须 100% 清仓 SQQQ！"
       },
       QQQ: {
         name: "纳指100 ETF (大科技核心母体)", isInverse: false,
-        leftFootClose: 647.05, regClose: 661.80, preHigh: 688.50, intraHigh: 692.20, intraLow: 661.50, fixedVwap: 679.50,
-        minP: 610.0, maxP: 740.0, step: 0.5, theoToday: 692.00, betaDecay: 0.0,
-        gammaCorridor: [665.0, 692.0],
-        lockedMorningPts: [661.80, 666.50, 671.20, 676.80, 682.40, 688.50, 687.20, 688.00, 689.50, 684.20, 689.80, 691.50, 691.80],
+        leftFootClose: 647.05, regClose: 690.20, postClose: 686.50, preHigh: 689.20, intraHigh: 692.40, intraLow: 661.50, fixedVwap: 685.50,
+        minP: 610.0, maxP: 740.0, step: 0.5, theoToday: 687.00, betaDecay: 0.0,
+        gammaCorridor: [665.0, 692.4],
+        lockedMorningPts: [686.50, 688.20, 687.60, 687.00, 686.40, 687.20, 687.80, 687.50, 689.00, 685.50, 682.00, 678.50, 675.00, 671.50, 672.50],
         presets: [
-          { label: "昨正盘收: $661.80", val: 661.80, baseTheo: 692.00, anchorDt: "11/11" },
-          { label: "当前高位: $691.50", val: 691.50, baseTheo: 692.00, anchorDt: "11/11" },
-          { label: "11/18中继: $667.00", val: 667.00, baseTheo: 692.00, anchorDt: "11/11" },
-          { label: "11/26黄金坑: $648.09", val: 648.09, baseTheo: 692.00, anchorDt: "11/11" }
+          { label: "11/10收盘: $661.80", val: 661.80, baseTheo: 692.00, anchorDt: "11/11" },
+          { label: "当前亚盘: $688.20", val: 688.20, baseTheo: 687.00, anchorDt: "11/12" },
+          { label: "11/18中继: $667.00", val: 667.00, baseTheo: 687.00, anchorDt: "11/12" },
+          { label: "11/26黄金坑: $648.09", val: 648.09, baseTheo: 687.00, anchorDt: "11/12" }
         ],
-        hist: buildDailyHist(722.0, 726.0, 647.05, 662.5, 661.8, 1, false),
+        hist: buildDailyHist(722.0, 647.05, 662.5, 661.8, 690.2, false),
         theoCurve: [
           ["10/14",726.0],["10/19",704.0],["10/21",698.0],["10/26",718.0],["10/30",745.0],["11/05",711.06],
-          ["11/09",701.0],["11/11",692.0],["11/13",682.0],["11/16",674.0],["11/18",667.0],["11/23",655.0],
+          ["11/09",701.0],["11/11",692.0],["11/12",687.0],["11/13",682.0],["11/16",674.0],["11/18",667.0],["11/23",655.0],
           ["11/26",648.09],["11/30",672.0],["12/03",690.0],["12/07",704.5],["12/10",709.9],["12/18",679.0],["12/28",670.0]
         ],
-        reversionWeights: { "11/09":1.0, "11/11":0.75, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
         mmRadarRatios: { pivot: 0.988, neck: [1.008, 1.015], sweep: [1.018, 1.025] },
-        phaseDesc: "【1倍母体无杠杆磨损 · 触及今日理论天花板 ($692.00)】冲高 $691~$692 遇阻后，将向 11/18 ($667.0) 与 11/26 ($648.09) 均值回归",
-        ironRule: "QQQ 核心铁律：今日理论天花板在 $692.00！冲高 $690~$692 严禁追涨，跌破 VWAP ($679.50) 将回测 $665~$667 (11/18中继位)，11/26 终极黄金坑右脚锁死在 $648.09！"
+        phaseDesc: "【1倍母体无杠杆磨损 · 触及 11/11 理论天花板 ($692.00) 遇阻相】昨高 $692.40 精准撞轨，开启向 11/18 ($667.0) 与 11/26 ($648.09) 均值回归",
+        ironRule: "QQQ 核心铁律：昨日 $692.00 理论天花板已精准兑现！今日反抽 $688~$690 严禁追涨，跌破 VWAP ($685.50) 将回测 $667.00 (11/18中继位)，11/26 终极黄金坑右脚锁死在 $648.09！"
       },
       SPY: {
         name: "标普500 ETF (宏观大盘压舱石)", isInverse: false,
-        leftFootClose: 733.00, regClose: 739.50, preHigh: 757.50, intraHigh: 758.20, intraLow: 739.20, fixedVwap: 749.20,
-        minP: 690.0, maxP: 780.0, step: 0.5, theoToday: 740.00, betaDecay: 0.0,
-        gammaCorridor: [740.0, 758.0],
-        lockedMorningPts: [739.50, 742.20, 745.00, 748.50, 752.80, 757.50, 756.40, 757.00, 756.50, 754.20, 756.80, 757.60, 757.20],
+        leftFootClose: 733.00, regClose: 758.50, postClose: 756.20, preHigh: 758.00, intraHigh: 760.20, intraLow: 739.20, fixedVwap: 752.40,
+        minP: 690.0, maxP: 780.0, step: 0.5, theoToday: 736.50, betaDecay: 0.0,
+        gammaCorridor: [740.0, 760.2],
+        lockedMorningPts: [756.20, 757.20, 756.80, 756.00, 755.40, 756.10, 756.50, 756.20, 757.40, 753.80, 750.20, 746.50, 743.00, 740.20, 741.00],
         presets: [
-          { label: "昨正盘收: $739.50", val: 739.50, baseTheo: 740.00, anchorDt: "11/11" },
-          { label: "超买极值: $757.00", val: 757.00, baseTheo: 740.00, anchorDt: "11/11" },
-          { label: "11/18中继: $722.00", val: 722.00, baseTheo: 740.00, anchorDt: "11/11" },
-          { label: "11/26黄金坑: $705.93", val: 705.93, baseTheo: 740.00, anchorDt: "11/11" }
+          { label: "11/10收盘: $739.50", val: 739.50, baseTheo: 740.00, anchorDt: "11/11" },
+          { label: "当前超买位: $757.20", val: 757.20, baseTheo: 736.50, anchorDt: "11/12" },
+          { label: "11/18中继: $722.00", val: 722.00, baseTheo: 736.50, anchorDt: "11/12" },
+          { label: "11/26黄金坑: $705.93", val: 705.93, baseTheo: 736.50, anchorDt: "11/12" }
         ],
-        hist: buildDailyHist(765.0, 772.0, 733.0, 741.2, 739.5, 1, false),
+        hist: buildDailyHist(765.0, 733.0, 741.2, 739.5, 758.5, false),
         theoCurve: [
           ["10/14",766.0],["10/19",749.0],["10/21",746.0],["10/26",762.0],["10/30",776.0],["11/05",755.35],
-          ["11/09",746.0],["11/11",740.0],["11/13",733.0],["11/16",727.0],["11/18",722.0],["11/23",712.0],
+          ["11/09",746.0],["11/11",740.0],["11/12",736.5],["11/13",733.0],["11/16",727.0],["11/18",722.0],["11/23",712.0],
           ["11/26",705.93],["11/30",724.0],["12/03",738.0],["12/07",751.0],["12/10",756.0],["12/18",731.0],["12/28",726.5]
         ],
-        reversionWeights: { "11/09":1.0, "11/11":0.75, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
         mmRadarRatios: { pivot: 0.990, neck: [1.006, 1.012], sweep: [1.015, 1.020] },
-        phaseDesc: "【1倍母体正乖离超买相】当 SPY 冲至 $757 (高于今日理论位 $740.00 +2.3%) 时，面临强烈向下均值回归引力",
-        ironRule: "SPY 核心铁律：今日理论基准在 $740.00！高于 $740 的拉升均属正乖离超买透支，跌破 VWAP ($749.20) 将回测 $739.5~$741.5 理论轨，随后阶梯回撤向 11/18 ($722.0) 与 11/26 黄金坑 ($705.93) 寻底！"
+        phaseDesc: "【1倍母体正乖离超买相】标普冲至 7619 ($757.20) 高于今日理论位 ($736.50) +2.8%，面临强烈向下均值回归引力",
+        ironRule: "SPY 核心铁律：今日理论基准在 $736.50！高于 $740 的拉升均属正乖离超买透支，跌破 VWAP ($752.40) 将回测 $736.5~$740.0 理论轨，随后阶梯回撤向 11/18 ($722.0) 与 11/26 黄金坑 ($705.93) 寻底！"
       },
       SOXX: {
         name: "费城半导体1倍ETF (已对齐拆股后复权标尺)", isInverse: false,
-        leftFootClose: 127.50, regClose: 146.59, preHigh: 155.20, intraHigh: 157.80, intraLow: 146.20, fixedVwap: 153.40,
-        minP: 116.7, maxP: 165.0, step: 0.1, theoToday: 136.80, betaDecay: 0.0,
-        gammaCorridor: [146.0, 157.8],
-        lockedMorningPts: [146.59, 148.10, 149.80, 151.60, 153.50, 155.20, 154.10, 153.90, 155.80, 152.40, 155.72, 156.90, 157.50],
+        leftFootClose: 127.50, regClose: 155.40, postClose: 153.20, preHigh: 155.10, intraHigh: 158.20, intraLow: 146.20, fixedVwap: 153.60,
+        minP: 116.7, maxP: 165.0, step: 0.1, theoToday: 135.90, betaDecay: 0.0,
+        gammaCorridor: [146.0, 158.2],
+        lockedMorningPts: [153.20, 154.78, 154.20, 153.80, 153.50, 153.90, 154.10, 153.90, 154.50, 152.60, 151.00, 149.20, 147.80, 146.20, 146.80],
         presets: [
-          { label: "左脚收盘: $127.50", val: 127.50, baseTheo: 136.80, anchorDt: "11/11" },
-          { label: "今日极值: $157.50", val: 157.50, baseTheo: 136.80, anchorDt: "11/11" },
-          { label: "11/18中继: $132.00", val: 132.00, baseTheo: 136.80, anchorDt: "11/11" },
-          { label: "11/26黄金坑: $128.00", val: 128.00, baseTheo: 136.80, anchorDt: "11/11" }
+          { label: "左脚收盘: $127.50", val: 127.50, baseTheo: 142.67, anchorDt: "11/05" },
+          { label: "今日夜盘: $154.78", val: 154.78, baseTheo: 135.90, anchorDt: "11/12" },
+          { label: "11/18中继: $132.00", val: 132.00, baseTheo: 135.90, anchorDt: "11/12" },
+          { label: "11/26黄金坑: $128.00", val: 128.00, baseTheo: 135.90, anchorDt: "11/12" }
         ],
-        hist: buildDailyHist(142.0, 143.0, 127.5, 141.8, 146.59, 1, false),
+        hist: buildDailyHist(142.0, 127.5, 141.8, 146.59, 155.40, false),
         theoCurve: [
           ["10/14",141.0],["10/19",138.7],["10/21",137.2],["10/26",140.0],["10/30",148.7],["11/05",142.67],
-          ["11/09",138.50],["11/11",136.8],["11/13",135.0],["11/16",133.5],["11/18",132.0],["11/23",129.5],
+          ["11/09",138.50],["11/11",136.8],["11/12",135.9],["11/13",135.0],["11/16",133.5],["11/18",132.0],["11/23",129.5],
           ["11/26",128.0],["11/30",133.0],["12/03",137.5],["12/07",140.8],["12/10",142.0],["12/18",135.0],["12/28",132.67]
         ],
-        reversionWeights: { "11/09":1.0, "11/11":0.75, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
         mmRadarRatios: { pivot: 0.982, neck: [1.015, 1.025], sweep: [1.030, 1.040] },
-        phaseDesc: "【1倍母体正乖离超买相】现价已高于周期系统逻辑理论位 ($136.80) +15.1%，均值回归下杀引力极强",
+        phaseDesc: "【1倍母体正乖离超买相】SOXX 夜盘报 $154.78 (-0.40%)，高于周期系统逻辑理论位 ($135.90) +13.9%，均值回归下杀引力极强",
         ironRule: "1倍母体无杠杆磨损，当 SOXX 按周期系统逻辑理论轨回踩 11/26 ($128.0) 时，SOXL 对应回踩 $48.40 (系统逻辑轨) / $42.35 (3x损耗轨)！"
       }
     };
@@ -258,10 +262,10 @@
       isAuthed: false,
       pinError: false,
       ticker: "SOXL",
-      prices: { SOXL: 68.80, SOXS: 17.15, TQQQ: 90.20, SQQQ: 16.30, QQQ: 691.50, SPY: 757.00, SOXX: 157.50 },
+      prices: { SOXL: 65.18, SOXS: 18.02, TQQQ: 88.90, SQQQ: 16.48, QQQ: 688.20, SPY: 757.20, SOXX: 154.78 },
       realIntraStats: {},
       customBaseTheo: null,
-      anchorDt: "11/11",
+      anchorDt: "11/12",
       isLive: true,
       liveStatus: "云端实时行情就绪",
       viewMode: "both",
@@ -273,6 +277,7 @@
 
     try { state.isAuthed = localStorage.getItem(AUTH_KEY) === ACCESS_PIN; } catch (e) {}
 
+    // ✨ 修复 Bug 3：24H 全天候连续时间轴映射 (以 08:00 BJT 亚盘夜盘起点为 0 分钟，全天任意时刻均平滑插值)
     function getRealTimeSlotInfo() {
       const now = new Date();
       const bjtStr = now.toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
@@ -282,37 +287,43 @@
       const bjtHM = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
       const estHM = `${String(eh).padStart(2,"0")}:${String(em).padStart(2,"0")}`;
 
-      let exactMin = 330;
-      if (h >= 16) exactMin = (h - 16) * 60 + m + (s || 0) / 60;
-      else if (h < 5) exactMin = (h + 8) * 60 + m + (s || 0) / 60;
-      else if (h >= 5 && h < 16) exactMin = 780;
-
-      exactMin = Math.max(0, Math.min(780, exactMin));
+      // 计算距离当日 08:00 BJT (美东夜盘 20:00/19:00) 的分钟数 (0 ~ 1440)
+      let exactMin = 0;
+      if (h >= 8) {
+        exactMin = (h - 8) * 60 + m + (s || 0) / 60;
+      } else {
+        exactMin = (h + 16) * 60 + m + (s || 0) / 60;
+      }
+      exactMin = Math.max(0, Math.min(1439, exactMin));
 
       let bestIdx = 0, nowFloatIdx = 0;
       for (let i = 0; i < INTRA_SLOTS.length - 1; i++) {
-        const m0 = INTRA_SLOTS[i].minFrom16, m1 = INTRA_SLOTS[i + 1].minFrom16;
+        const m0 = INTRA_SLOTS[i].minFrom08, m1 = INTRA_SLOTS[i + 1].minFrom08;
         if (exactMin >= m0 && exactMin <= m1) {
           bestIdx = i;
           nowFloatIdx = i + (exactMin - m0) / Math.max(1, m1 - m0);
           break;
         }
       }
-      if (exactMin >= 780) { bestIdx = INTRA_SLOTS.length - 1; nowFloatIdx = INTRA_SLOTS.length - 1; }
 
-      const curSec = ((h >= 16 ? h - 16 : h + 8) * 3600) + m * 60 + (s || 0);
-      const openSec = (22 - 16) * 3600 + 30 * 60;
+      // 计算距离 22:30 BJT 美股正盘开盘 (minFrom08 = 870) 的状态
+      const openMin = 870; // 22:30 BJT
+      const closeMin = 1260; // 05:00 BJT
       let countdownText = "🔥 美股正盘交易进行中";
-      if (curSec < openSec && h >= 16) {
-        const diff = openSec - curSec;
-        countdownText = `距 22:30 美股开盘 ${Math.floor(diff/3600)}h ${Math.floor((diff%3600)/60)}m ${diff%60}s`;
-      } else if (h >= 5 && h < 16) {
-        countdownText = "🌙 美股正盘已收盘 (盘后/夜盘期)";
+      if (exactMin < openMin) {
+        const diffSec = Math.max(0, Math.floor((openMin - exactMin) * 60));
+        const dh = Math.floor(diffSec / 3600);
+        const dm = Math.floor((diffSec % 3600) / 60);
+        const ds = diffSec % 60;
+        const sessionTag = exactMin < 480 ? "亚洲夜盘交易中" : "欧美盘前交易中";
+        countdownText = `${sessionTag} · 距22:30正盘 ${dh}h ${dm}m ${ds}s`;
+      } else if (exactMin >= closeMin) {
+        countdownText = "🌙 美股盘后交易时段 (05:00-08:00)";
       }
       return { bjtStr, estStr, bjtHM, estHM, nowIdx: bestIdx, nowFloatIdx, exactMin, countdownText };
     }
 
-    // ✨ 全功能核心引擎：集成 6 大量化模块
+    // ✨ 修复 Bug 5 & 6：归一化 Sigmoid 弹射函数 + 反向 ETF (SOXS/SQQQ) 镜像状态机
     function computeAll() {
       const cfg = RAW_DB[state.ticker];
       const curP = state.prices[state.ticker] || cfg.regClose;
@@ -320,35 +331,42 @@
       const spreadRatio = (curP / activeTheoNow) - 1.0;
       const spreadPct = spreadRatio * 100;
 
-      // 【模块 1】极端负乖离红线 (-35%) 与禁空熔断保护 (-10%)
-      const isExtremeBarrierBreached = spreadPct <= -35.0;
-      const isShortFrozen = spreadPct <= -10.0;
+      // 【模块 1】极端负乖离红线 (-35%) 与禁空熔断保护 (-10%) —— 区分正向与反向标的
+      const isExtremeBarrierBreached = !cfg.isInverse && (spreadPct <= -35.0);
+      const isShortFrozen = !cfg.isInverse && (spreadPct <= -10.0);
 
       // 【模块 2】区分“超跌修复回归段”与“周期母版主趋势接管段”
-      const isReversionPhase = curP < activeTheoNow * 0.96;
-      const phaseTitle = isReversionPhase
-        ? "【阶段定性】：超跌报复性修复回归段（非新周期主升 · 纯空间填补）"
-        : "【阶段定性】：周期系统母版主趋势接管段（负乖离已归零 · 正式启动标准周期波浪）";
+      const isReversionPhase = !cfg.isInverse ? (curP < activeTheoNow * 0.96) : (curP > activeTheoNow * 1.04);
+      const phaseTitle = cfg.isInverse
+        ? "【阶段定性】：反向空头对冲主升蓄势段（随正股摸顶回落开启波段反弹）"
+        : (isReversionPhase
+          ? "【阶段定性】：超跌报复性修复回归段（非新周期主升 · 纯空间填补）"
+          : "【阶段定性】：周期系统母版主趋势接管段（负乖离已归零 · 正式启动标准周期波浪）");
 
       const theoMap = Object.fromEntries(cfg.theoCurve);
-      const baseWeight = cfg.reversionWeights[state.anchorDt] || 0.75;
+      const baseWeight = cfg.reversionWeights[state.anchorDt] || 1.0;
 
-      // 【模块 3】橡皮筋超限弹射引擎 (Sigmoid Elastic Impulse)
+      // 【模块 3】零点归一化橡皮筋超限弹射引擎 (Normalized Sigmoid Elastic Impulse)
       const calcSysRev = (dtLabel) => {
         const baseT = theoMap[dtLabel] || activeTheoNow;
+        const deltaDays = Math.max(0, dayOf(dtLabel) - dayOf(state.anchorDt));
+        if (deltaDays === 0) return curP;
+
         if (isExtremeBarrierBreached) {
-          const deltaDays = Math.max(0, dayOf(dtLabel) - dayOf(state.anchorDt));
-          const sigmoidProgress = 1.0 / (1.0 + Math.exp(-0.85 * (deltaDays - 2.5)));
-          return curP + (baseT - curP) * sigmoidProgress;
+          // 零点归一化 Sigmoid：保证 deltaDays=0 时严格等于 curP，4~5天内快速弹回母版线
+          const s0 = 1.0 / (1.0 + Math.exp(-0.85 * (0 - 2.5)));
+          const st = 1.0 / (1.0 + Math.exp(-0.85 * (deltaDays - 2.5)));
+          const normProgress = Math.min(1.0, Math.max(0, (st - s0) / (1.0 - s0)));
+          return curP + (baseT - curP) * normProgress;
         } else {
-          const w = (cfg.reversionWeights[dtLabel] ?? 0.05) / baseWeight;
+          const w = Math.min(1.0, (cfg.reversionWeights[dtLabel] ?? 0.05) / baseWeight);
           return baseT * (1.0 + spreadRatio * w);
         }
       };
 
       const stat = state.realIntraStats[state.ticker] || {};
       const is3x = cfg.betaDecay > 0;
-      const isHistoricalAnchor = state.anchorDt !== "11/11";
+      const isHistoricalAnchor = state.anchorDt === "11/05" || state.anchorDt === "11/09";
       const lockedHigh = isHistoricalAnchor
         ? curP * 1.01
         : Math.max(cfg.intraHigh, stat.high || 0, curP);
@@ -358,23 +376,29 @@
       const turboCeiling = is3x ? activeTheoNow * (1.0 + cfg.betaDecay * 0.55) : activeTheoNow * 1.015;
 
       // 【模块 6】伽马脉冲见顶三级检测引擎 (Gamma Pulse Peak Detector)
-      const isGammaOverextended = !cfg.isInverse && !isHistoricalAnchor && (curP >= activeTheoNow * 1.015);
-      const isPeakExhausted = !cfg.isInverse && !isHistoricalAnchor && (lockedHigh >= activeTheoNow * 1.015 && curP <= lockedHigh * 0.985 && curP >= curVwap);
+      const isGammaOverextended = !cfg.isInverse && !isHistoricalAnchor && (curP >= activeTheoNow * 1.025 && curP >= lockedHigh * 0.985);
+      const isPeakExhausted = !cfg.isInverse && !isHistoricalAnchor && (lockedHigh >= activeTheoNow * 1.015 && curP < lockedHigh * 0.985 && curP >= curVwap);
       const isVwapBrokenRightSide = !cfg.isInverse && !isHistoricalAnchor && (lockedHigh >= activeTheoNow * 1.010 && curP < curVwap && !isShortFrozen);
 
       let gammaStatus = {
         level: "normal",
-        badge: isExtremeBarrierBreached
-          ? "⚡ 【负Gamma超限弹簧蓄势】空头回补点火区 (严禁做空)"
-          : "⚪ 【常规Gamma波动状态】遵循标准周期均值回归通道",
-        bg: isExtremeBarrierBreached
-          ? "bg-purple-50 border-purple-400 text-purple-950"
-          : "bg-slate-50 border-slate-200 text-slate-700",
-        btnCls: isExtremeBarrierBreached ? "bg-purple-700" : "bg-slate-600",
-        btnText: isExtremeBarrierBreached ? "超限弹射中" : "波动正常",
-        desc: isExtremeBarrierBreached
-          ? "负乖离跌破 -35% 触发橡皮筋效应，一旦跨过近端行权价将引发做市商被动扫货轧空！"
-          : `当前未处于极端正乖离脉冲态 | 3x单边正向复利极限上限参考: $${turboCeiling.toFixed(2)}`
+        badge: cfg.isInverse
+          ? "🟣 【反向对冲猎手雷达】正股伽马脉冲已见顶 ($69.73)，空头ETF右侧黄金买坑确立"
+          : (isExtremeBarrierBreached
+            ? "⚡ 【负Gamma超限弹簧蓄势】空头回补点火区 (严禁做空)"
+            : "⚪ 【常规Gamma波动状态】遵循标准周期均值回归通道"),
+        bg: cfg.isInverse
+          ? "bg-indigo-50 border-indigo-300 text-indigo-950"
+          : (isExtremeBarrierBreached
+            ? "bg-purple-50 border-purple-400 text-purple-950"
+            : "bg-slate-50 border-slate-200 text-slate-700"),
+        btnCls: cfg.isInverse ? "bg-indigo-600" : (isExtremeBarrierBreached ? "bg-purple-700" : "bg-slate-600"),
+        btnText: cfg.isInverse ? "右侧低吸做多" : (isExtremeBarrierBreached ? "超限弹射中" : "波动正常"),
+        desc: cfg.isInverse
+          ? `随正股从极值回落，${state.ticker} 在 $${cfg.intraLow.toFixed(2)} 探明底部。回踩 $${(curVwap*0.98).toFixed(2)}~$${curVwap.toFixed(2)} 分批做多，目标直指 11/18 ($${cfg.theoCurve.find(d=>d[0]==='11/18')[1].toFixed(2)})！`
+          : (isExtremeBarrierBreached
+            ? "负乖离跌破 -35% 触发橡皮筋效应，一旦跨过近端行权价将引发做市商被动扫货轧空！"
+            : `当前未处于极端正乖离脉冲态 | 3x单边正向复利极限上限参考: $${turboCeiling.toFixed(2)}`)
       };
 
       if (isVwapBrokenRightSide) {
@@ -384,16 +408,16 @@
           bg: "bg-rose-50 border-rose-400 text-rose-900",
           btnCls: "bg-rose-600",
           btnText: "右侧果断加空",
-          desc: `冲顶 $${lockedHigh.toFixed(2)} 后放量跌穿分时均价线 ($${curVwap.toFixed(2)})，实值Call Delta快速缩水，做市商被迫市价砸盘抛售正股，右侧空单/SOXS确定性买点触发！`
+          desc: `自极值 $${lockedHigh.toFixed(2)} 回落并跌穿分时均价线 ($${curVwap.toFixed(2)})，实值Call Delta快速缩水，做市商被迫市价抛售正股平账，右侧空单/SOXS确定性买点触发！`
         };
       } else if (isPeakExhausted) {
         gammaStatus = {
           level: "exhausted",
-          badge: "🟡 【伽马脉冲见顶 · 阶段二】：冲高回落刺针钝化 (动能枯竭 · 多单终极离场)",
+          badge: "🟡 【伽马脉冲见顶 · 阶段二】：冲高回落刺针钝化 / 亚盘筑右肩 (买流枯竭 · 逢高布空)",
           bg: "bg-amber-50 border-amber-400 text-amber-950",
           btnCls: "bg-amber-600",
-          btnText: "多单全数清仓",
-          desc: `现价 ($${curP.toFixed(2)}) 较日内极值 ($${lockedHigh.toFixed(2)}) 回撤超 1.5%，深度实值Call的Gamma衰减归零，主动买流断崖，多头利润必须 100% 落袋，等待跌破 $${curVwap.toFixed(2)} 右侧加空！`
+          btnText: "逢高分批布空",
+          desc: `现价 ($${curP.toFixed(2)}) 较极值 ($${lockedHigh.toFixed(2)}) 已回落超 1.5%，深度实值Call的Gamma衰减归零，亚盘缩量反抽构筑右肩，多单清仓并在 $${curP.toFixed(2)}~$${(lockedHigh*0.95).toFixed(2)} 逢高分批布空！`
         };
       } else if (isGammaOverextended) {
         gammaStatus = {
@@ -406,8 +430,8 @@
         };
       }
 
-      const isAlreadyAtTheoCeiling = !cfg.isInverse && (lockedHigh >= cfg.theoToday * 0.95 || curP > cfg.regClose * 1.025);
-      const topLow = Math.min(lockedHigh * 0.985, Math.max(curP * 0.992, cfg.theoToday * 0.985));
+      const isAlreadyAtTheoCeiling = !cfg.isInverse && (lockedHigh >= cfg.theoToday * 0.95 || curP > cfg.regClose * 0.95);
+      const topLow = Math.min(lockedHigh * 0.96, Math.max(curP * 0.995, cfg.theoToday));
       const topHigh = Math.max(lockedHigh, curP * 1.006, cfg.theoToday);
 
       const sysTrack = {
@@ -422,9 +446,9 @@
       const dFactor = 1.0 - cfg.betaDecay;
       const lockedTrack = {
         pivot: curP * (is3x ? 0.945 : 0.988),
-        p1118: (theoMap["11/18"] * dFactor) * (is3x ? 0.936 : 1.0),
+        p1118: (theoMap["11/18"] * dFactor) * (is3x && !cfg.isInverse ? 0.936 : 1.0),
         p1126: (theoMap["11/26"] * dFactor),
-        p1210: (theoMap["12/10"] * dFactor) * (is3x ? 0.974 : 1.0)
+        p1210: (theoMap["12/10"] * dFactor) * (is3x && !cfg.isInverse ? 0.974 : 1.0)
       };
 
       return {
@@ -445,7 +469,7 @@
       const histPts = cfg.hist.filter(d => dayOf(d[0]) < cutDay);
       histPts.push([state.anchorDt, curP]);
 
-      const futDates = ["11/06","11/09","11/10","11/11","11/13","11/16","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
+      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
         .filter(dt => dayOf(dt) > cutDay);
 
       const futSys = [[state.anchorDt, curP], ...futDates.map(dt => [dt, calcSysRev(dt)])];
@@ -455,7 +479,7 @@
         if (dt === "11/18") return [dt, lockedTrack.p1118];
         if (dt === "11/26") return [dt, lockedTrack.p1126];
         if (dt === "12/10") return [dt, lockedTrack.p1210];
-        const raw = (theoMap[dt] || curP) * dFactor * (dayOf(dt) < dayOf("11/26") && is3x ? 0.94 : 1.0);
+        const raw = (theoMap[dt] || curP) * dFactor * (dayOf(dt) < dayOf("11/26") && is3x && !cfg.isInverse ? 0.94 : 1.0);
         return [dt, raw];
       })];
 
@@ -528,7 +552,7 @@
           <text x="${xOf("12/10")}" y="${y1Of(sysTrack.p1210)-12}" text-anchor="middle" font-size="11" font-weight="bold" fill="#059669" class="font-mono">12-10: $${sysTrack.p1210.toFixed(1)}</text>
         ` : ""}
         <circle cx="${nowX}" cy="${y1Of(curP)}" r="6" fill="#DC2626" stroke="#FFF" stroke-width="1.5"/>
-        <text x="${nowX-8}" y="${y1Of(curP)-12}" text-anchor="end" font-size="11.5" font-weight="bold" fill="#DC2626" class="font-mono">当前锚点: $${curP.toFixed(2)}</text>
+        <text x="${nowX-8}" y="${y1Of(curP)-12}" text-anchor="end" font-size="11.5" font-weight="bold" fill="#DC2626" class="font-mono">当前锚点(${state.anchorDt}): $${curP.toFixed(2)}</text>
 
         <g transform="translate(0, ${H1 + 5})">
           <rect x="${PAD_L}" y="10" width="${plotW}" height="${H2-35}" fill="#FAFAFA" stroke="#CBD5E1" stroke-width="1"/>
@@ -548,32 +572,28 @@
       const { cfg, curP, sysTrack, is3x, lockedHigh, isShortFrozen, curVwap } = m;
       const nowIdx = timeInfo.nowIdx;
       const nowFloatIdx = timeInfo.nowFloatIdx;
-      const openIdx = 9;
+      const openIdx = 7;  // 22:30 BJT 正盘开盘
+      const closeIdx = 14; // 05:00 BJT 正盘收盘
 
       let vwap = curVwap;
-      if (!cfg.isInverse && (vwap <= cfg.regClose)) {
-        vwap = parseFloat((cfg.regClose * 0.42 + curP * 0.58).toFixed(2));
-      }
-
-      const dayGainPct = ((lockedHigh - cfg.regClose) / cfg.regClose) * 100;
-      const isBlowOffTop = !cfg.isInverse && !isShortFrozen && (lockedHigh >= cfg.theoToday * 0.95 || dayGainPct >= (is3x ? 7.5 : 1.8));
+      const isBlowOffTop = !cfg.isInverse && !isShortFrozen && (lockedHigh >= cfg.theoToday * 0.95);
 
       let majorSupLow, majorSupHigh, demandLow, demandHigh, microRes, stopHuntExtreme;
       if (isBlowOffTop) {
-        majorSupHigh = Math.max(lockedHigh, cfg.theoToday, curP * (is3x ? 1.015 : 1.005));
-        majorSupLow = Math.min(cfg.theoToday, majorSupHigh * (is3x ? 0.975 : 0.992));
-        microRes = curP >= majorSupLow ? majorSupHigh : curP + (majorSupHigh - curP) * 0.60;
-        const rawTargetLow = Math.min(cfg.regClose * (is3x ? 1.025 : 1.002), sysTrack.p1118, vwap * (is3x ? 0.915 : 0.982));
-        const rawTargetHigh = Math.min(vwap * (is3x ? 0.955 : 0.990), Math.max(rawTargetLow * (is3x ? 1.024 : 1.006), sysTrack.p1118));
+        majorSupHigh = Math.max(lockedHigh, cfg.regClose, cfg.theoToday, curP * (is3x ? 1.015 : 1.005));
+        majorSupLow = Math.min(cfg.regClose, cfg.theoToday, majorSupHigh * (is3x ? 0.965 : 0.990));
+        microRes = curP >= majorSupLow ? Math.min(majorSupHigh, curP * 1.012) : curP + (majorSupLow - curP) * 0.65;
+        const rawTargetLow = Math.min(cfg.intraLow, sysTrack.p1118, vwap * (is3x ? 0.925 : 0.982));
+        const rawTargetHigh = Math.min(vwap * (is3x ? 0.960 : 0.990), Math.max(rawTargetLow * (is3x ? 1.032 : 1.006), cfg.intraLow));
         demandLow = rawTargetLow;
         demandHigh = Math.max(rawTargetLow + (is3x ? 0.8 : 1.5), rawTargetHigh);
-        stopHuntExtreme = Math.min(cfg.regClose, demandLow * (is3x ? 0.980 : 0.993));
+        stopHuntExtreme = Math.min(sysTrack.p1118, demandLow * (is3x ? 0.975 : 0.992));
       } else if (cfg.isInverse) {
-        majorSupLow = cfg.regClose * 0.965;
-        majorSupHigh = cfg.regClose * 1.015;
+        majorSupLow = Math.max(cfg.regClose * 1.05, curP * 1.06);
+        majorSupHigh = Math.max(cfg.regClose * 1.12, curP * 1.12);
         demandLow = Math.min(cfg.intraLow, curP * 0.975);
-        demandHigh = Math.min(vwap * 0.985, curP * 0.992);
-        microRes = vwap;
+        demandHigh = Math.min(vwap * 0.990, curP * 0.992);
+        microRes = Math.max(vwap, curP * 1.015);
         stopHuntExtreme = demandLow * 0.975;
       } else {
         majorSupLow = Math.max(curP * 1.035, vwap * 1.025);
@@ -593,22 +613,53 @@
       }
       pastPts.push([nowFloatIdx, curP]);
 
+      // ✨ 修复 Bug 3 & 4：覆盖全天 24H (idx 1 ~ 16) 的完整推演模板，并与 idx 8 (23:15), idx 10 (01:00), idx 13 (04:00) 精准对齐
       const pathA = [[nowFloatIdx, curP]], pathB = [[nowFloatIdx, curP]], pathC = [[nowFloatIdx, curP]];
       const tmplA = isBlowOffTop
-        ? [[8,curP*0.998],[9,curP*0.995],[10,microRes],[11,(microRes+vwap)*0.5],[12,vwap*(is3x?0.985:0.995)],[13,vwap*(is3x?0.965:0.990)],[14,(vwap+demandHigh)*0.5],[15,demandHigh],[16,(demandLow+demandHigh)*0.5]]
-        : [[8,curP*0.996],[9,demandHigh*0.995],[10,(demandLow+demandHigh)*0.5],[11,vwap*0.998],[12,vwap*1.018],[13,(vwap+majorSupLow)*0.5],[14,majorSupLow*1.002],[15,(majorSupLow+majorSupHigh)*0.5],[16,majorSupLow*1.005]];
+        ? [
+            [2, curP * 0.992], [3, (curP + vwap) * 0.5], [4, vwap * 1.005], [5, vwap * 1.010],
+            [6, (curP + vwap) * 0.5], [7, curP * 0.995], [8, microRes], [9, vwap * 1.002],
+            [10, vwap * (is3x ? 0.982 : 0.995)], [11, (vwap + demandHigh) * 0.5], [12, demandHigh * 1.005],
+            [13, (demandLow + demandHigh) * 0.5], [14, demandHigh * 0.998], [15, demandLow * 1.002], [16, demandLow]
+          ]
+        : [
+            [2, curP * 0.995], [3, curP * 1.002], [4, (curP + vwap) * 0.5], [5, vwap * 0.998],
+            [6, vwap * 1.002], [7, demandHigh * 0.998], [8, (demandLow + demandHigh) * 0.5], [9, vwap * 1.002],
+            [10, vwap * 1.022], [11, (vwap + majorSupLow) * 0.5], [12, majorSupLow * 0.998],
+            [13, (majorSupLow + majorSupHigh) * 0.5], [14, majorSupLow * 1.005], [15, majorSupLow], [16, majorSupLow * 1.002]
+          ];
       const tmplB = isBlowOffTop
-        ? [[8,curP*1.001],[9,microRes*0.998],[10,majorSupLow],[11,majorSupHigh*0.998],[12,majorSupLow*0.995],[13,curP*0.992],[14,vwap*1.008],[15,vwap*1.002],[16,vwap*1.004]]
-        : [[8,curP*1.005],[9,vwap*1.005],[10,vwap*1.022],[11,majorSupLow*1.005],[12,majorSupHigh*1.005],[13,majorSupHigh*1.022],[14,majorSupHigh*1.015],[15,majorSupHigh*1.028],[16,majorSupHigh*1.020]];
+        ? [
+            [2, curP * 1.004], [3, curP * 1.008], [4, microRes * 0.996], [5, microRes],
+            [6, majorSupLow * 0.998], [7, majorSupLow], [8, majorSupHigh * 0.985], [9, majorSupLow * 0.995],
+            [10, curP * 0.995], [11, vwap * 1.012], [12, vwap * 1.005], [13, vwap * 1.002],
+            [14, vwap * 1.004], [15, vwap], [16, vwap * 0.998]
+          ]
+        : [
+            [2, curP * 1.005], [3, vwap * 1.005], [4, vwap * 1.012], [5, vwap * 1.018],
+            [6, vwap * 1.022], [7, vwap * 1.015], [8, vwap * 1.028], [9, majorSupLow * 0.995],
+            [10, majorSupLow * 1.008], [11, majorSupHigh * 0.995], [12, majorSupHigh * 1.008],
+            [13, majorSupHigh * 1.018], [14, majorSupHigh * 1.012], [15, majorSupHigh * 1.015], [16, majorSupHigh * 1.020]
+          ];
       const tmplC = isBlowOffTop
-        ? [[8,curP*0.992],[9,vwap*0.998],[10,demandHigh],[11,demandLow],[12,(demandLow+stopHuntExtreme)*0.5],[13,stopHuntExtreme],[14,demandLow*0.998],[15,demandLow*1.002],[16,demandLow]]
-        : [[8,curP*0.990],[9,demandLow*0.995],[10,stopHuntExtreme],[11,demandHigh*1.002],[12,vwap*0.998],[13,vwap*1.008],[14,vwap*1.015],[15,majorSupLow*0.995],[16,vwap*1.012]];
+        ? [
+            [2, curP * 0.982], [3, vwap * 0.995], [4, vwap * 0.982], [5, (vwap + demandHigh) * 0.5],
+            [6, demandHigh * 1.01], [7, demandHigh * 0.998], [8, demandLow * 0.998], [9, (demandLow + stopHuntExtreme) * 0.5],
+            [10, stopHuntExtreme * 1.008], [11, stopHuntExtreme], [12, stopHuntExtreme * 0.995],
+            [13, demandLow * 0.996], [14, demandLow * 1.002], [15, demandLow], [16, demandLow * 0.998]
+          ]
+        : [
+            [2, curP * 0.990], [3, demandHigh * 0.998], [4, demandLow * 0.998], [5, demandLow * 0.992],
+            [6, demandLow * 0.995], [7, demandLow * 0.990], [8, stopHuntExtreme], [9, demandLow * 1.002],
+            [10, vwap * 0.998], [11, vwap * 1.005], [12, vwap * 1.012], [13, vwap * 1.018],
+            [14, vwap * 1.015], [15, vwap * 1.012], [16, vwap * 1.015]
+          ];
 
       pathA.push(...tmplA.filter(d => d[0] > nowFloatIdx + 0.08));
       pathB.push(...tmplB.filter(d => d[0] > nowFloatIdx + 0.08));
       pathC.push(...tmplC.filter(d => d[0] > nowFloatIdx + 0.08));
 
-      return { nowIdx, nowFloatIdx, bjtHM: timeInfo.bjtHM, estHM: timeInfo.estHM, openIdx, isBlowOffTop, isShortFrozen, vwap, demandLow, demandHigh, microRes, majorSupLow, majorSupHigh, stopHuntExtreme, baseMorningPeak: cfg.preHigh || baseMorning[5], pastPts, pathA, pathB, pathC };
+      return { nowIdx, nowFloatIdx, bjtHM: timeInfo.bjtHM, estHM: timeInfo.estHM, openIdx, closeIdx, isBlowOffTop, isShortFrozen, vwap, demandLow, demandHigh, microRes, majorSupLow, majorSupHigh, stopHuntExtreme, baseMorningPeak: cfg.preHigh || baseMorning[1], pastPts, pathA, pathB, pathC };
     }
 
     function buildIntraSvg(intra, m) {
@@ -634,12 +685,15 @@
       });
 
       const activePath = state.intraScenario === "A" ? intra.pathA : (state.intraScenario === "B" ? intra.pathB : intra.pathC);
+      // ✨ 修复 Bug 4：气泡索引严格对齐 idx 8 (23:15)、idx 10 (01:00) 与 idx 13 (04:00)
       const bubbles = (intra.isBlowOffTop ? [
-        { idx: 13, label: "01:00 跌破VWAP", color: "#FBBF24", dy: -20 },
-        { idx: 15, label: "04:00 回归中继", color: "#34D399", dy: 24 }
+        { idx: 8,  label: "23:15 开盘反抽", color: "#FDA4AF", dy: -20 },
+        { idx: 10, label: "01:00 跌破VWAP", color: "#FBBF24", dy: -20 },
+        { idx: 13, label: "04:00 回归支撑", color: "#34D399", dy: 24 }
       ] : [
-        { idx: 13, label: "01:00 攻克VWAP", color: "#FBBF24", dy: -20 },
-        { idx: 15, label: "04:00 尾盘目标", color: "#38BDF8", dy: -20 }
+        { idx: 8,  label: "23:15 开盘右脚", color: "#34D399", dy: 24 },
+        { idx: 10, label: "01:00 攻克VWAP", color: "#FBBF24", dy: -20 },
+        { idx: 13, label: "04:00 尾盘目标", color: "#38BDF8", dy: -20 }
       ]).map(pt => {
         const item = activePath.find(d => d[0] === pt.idx);
         if (!item) return "";
@@ -653,28 +707,26 @@
 
       return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto select-none">
         <rect x="${PAD_L}" y="${PAD_T}" width="${plotW}" height="${H-PAD_T-PAD_B}" fill="#0F172A" rx="8"/>
-        <rect x="${xOf(intra.openIdx)}" y="${PAD_T}" width="${xOf(16)-xOf(intra.openIdx)}" height="${H-PAD_T-PAD_B}" fill="#1E293B" opacity="0.75"/>
-        <text x="${xOf(intra.openIdx)+10}" y="${PAD_T+18}" font-size="11" font-weight="bold" fill="#94A3B8" class="font-mono">🇺🇸 22:30 (美东09:30) 美股正盘交易区</text>
+        <!-- 16:00 盘前区与 22:30 正盘区背景分层 -->
+        <rect x="${xOf(3)}" y="${PAD_T}" width="${xOf(intra.openIdx)-xOf(3)}" height="${H-PAD_T-PAD_B}" fill="#1E293B" opacity="0.38"/>
+        <text x="${xOf(3)+8}" y="${PAD_T+18}" font-size="10" font-weight="bold" fill="#64748B" class="font-mono">🌍 16:00 欧美盘前区</text>
+        <rect x="${xOf(intra.openIdx)}" y="${PAD_T}" width="${xOf(intra.closeIdx)-xOf(intra.openIdx)}" height="${H-PAD_T-PAD_B}" fill="#1E293B" opacity="0.80"/>
+        <text x="${xOf(intra.openIdx)+10}" y="${PAD_T+18}" font-size="11" font-weight="bold" fill="#94A3B8" class="font-mono">🇺🇸 22:30 ~ 05:00 美股正盘决战区</text>
         ${grid}
         <rect x="${PAD_L}" y="${yOf(intra.majorSupHigh)}" width="${plotW}" height="${Math.max(4, yOf(intra.majorSupLow)-yOf(intra.majorSupHigh))}" fill="#F43F5E" opacity="0.24"/>
-        <text x="${PAD_L+10}" y="${yOf(intra.majorSupHigh)+14}" font-size="10.5" font-weight="bold" fill="#FDA4AF" class="font-mono">🔴 ${intra.isBlowOffTop ? "周期理论天花板与Gamma极值派发带" : "日内强阻力带"}: $${intra.majorSupLow.toFixed(2)} ~ $${intra.majorSupHigh.toFixed(2)}</text>
+        <text x="${PAD_L+10}" y="${yOf(intra.majorSupHigh)+14}" font-size="10.5" font-weight="bold" fill="#FDA4AF" class="font-mono">🔴 ${intra.isBlowOffTop ? "周期理论天花板与隔夜极值派发带" : "日内目标阻力带"}: $${intra.majorSupLow.toFixed(2)} ~ $${intra.majorSupHigh.toFixed(2)}</text>
         <rect x="${PAD_L}" y="${yOf(intra.demandHigh)}" width="${plotW}" height="${Math.max(4, yOf(intra.demandLow)-yOf(intra.demandHigh))}" fill="#10B981" opacity="0.25"/>
-        <text x="${PAD_L+10}" y="${yOf(intra.demandHigh)-6}" font-size="10.5" font-weight="bold" fill="#6EE7B7" class="font-mono">🟢 ${intra.isBlowOffTop ? "11/18中继引力与缺口承接带" : "分时需求承接区"}: $${intra.demandLow.toFixed(2)} ~ $${intra.demandHigh.toFixed(2)}</text>
+        <text x="${PAD_L+10}" y="${yOf(intra.demandHigh)-6}" font-size="10.5" font-weight="bold" fill="#6EE7B7" class="font-mono">🟢 ${intra.isBlowOffTop ? "昨日低点颈线与11/18中继承接带" : "分时低吸需求承接区"}: $${intra.demandLow.toFixed(2)} ~ $${intra.demandHigh.toFixed(2)}</text>
         <line x1="${PAD_L}" y1="${yOf(intra.vwap)}" x2="${W-PAD_R}" y2="${yOf(intra.vwap)}" stroke="#FBBF24" stroke-dasharray="6 4" stroke-width="1.6"/>
-        <text x="${PAD_L+10}" y="${yOf(intra.vwap)-6}" font-size="10.5" font-weight="bold" fill="#FBBF24" class="font-mono">🟡 今日真实分时均价线 (Locked VWAP 多空分水岭): $${intra.vwap.toFixed(2)}</text>
+        <text x="${PAD_L+10}" y="${yOf(intra.vwap)-6}" font-size="10.5" font-weight="bold" fill="#FBBF24" class="font-mono">🟡 日内多空分水岭均价线 (Locked VWAP): $${intra.vwap.toFixed(2)}</text>
         <line x1="${xOf(intra.nowFloatIdx)}" y1="${PAD_T}" x2="${xOf(intra.nowFloatIdx)}" y2="${H-PAD_B}" stroke="#EF4444" stroke-dasharray="5 3" stroke-width="1.8"/>
         <line x1="${xOf(intra.openIdx)}" y1="${PAD_T}" x2="${xOf(intra.openIdx)}" y2="${H-PAD_B}" stroke="#6366F1" stroke-dasharray="4 4" stroke-width="1.5"/>
         <polyline fill="none" stroke="#10B981" stroke-width="${state.intraScenario==='B'?'3.2':'1.3'}" stroke-dasharray="4 4" opacity="${state.intraScenario==='B'?'1':'0.38'}" points="${intra.pathB.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
         <polyline fill="none" stroke="#F97316" stroke-width="${state.intraScenario==='C'?'3.2':'1.3'}" stroke-dasharray="4 4" opacity="${state.intraScenario==='C'?'1':'0.38'}" points="${intra.pathC.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
         <polyline fill="none" stroke="#38BDF8" stroke-width="${state.intraScenario==='A'?'3.4':'1.5'}" stroke-dasharray="7 4" opacity="${state.intraScenario==='A'?'1':'0.42'}" points="${intra.pathA.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
         <polyline fill="none" stroke="#F8FAFC" stroke-width="2.8" points="${intra.pastPts.map(d=>`${xOf(d[0])},${yOf(d[1])}`).join(" ")}"/>
-        <circle cx="${xOf(5)}" cy="${yOf(intra.baseMorningPeak)}" r="4.5" fill="#F43F5E" stroke="#FFF" stroke-width="1"/>
-        <g transform="translate(${xOf(5)+56}, ${yOf(intra.baseMorningPeak)+4})">
-          <rect x="-52" y="-11" width="104" height="17" rx="4" fill="#0F172A" stroke="#F43F5E" stroke-width="1" opacity="0.92"/>
-          <text x="0" y="1" text-anchor="middle" font-size="10" font-weight="bold" fill="#FDA4AF" class="font-mono">盘前高点:$${intra.baseMorningPeak.toFixed(2)}</text>
-        </g>
         <circle cx="${xOf(intra.nowFloatIdx)}" cy="${yOf(m.curP)}" r="6" fill="#EF4444" stroke="#FEF2F2" stroke-width="2"/>
-        <g transform="translate(${xOf(intra.nowFloatIdx)}, ${yOf(m.curP)+24})">
+        <g transform="translate(${Math.min(W-105, Math.max(145, xOf(intra.nowFloatIdx)))}, ${yOf(m.curP)+24})">
           <rect x="-78" y="-12" width="156" height="20" rx="5" fill="#0F172A" stroke="#EF4444" stroke-width="1.4" opacity="0.96"/>
           <text x="0" y="2" text-anchor="middle" font-size="11" font-weight="bold" fill="#FCA5A5" class="font-mono">NOW(${intra.bjtHM}): $${m.curP.toFixed(2)}</text>
         </g>
@@ -682,7 +734,7 @@
         ${INTRA_SLOTS.map((s, idx) => {
           const isNearNow = Math.abs(idx - intra.nowFloatIdx) < 0.35;
           return `
-          <text x="${xOf(idx)}" y="${H-16}" text-anchor="middle" font-size="10.5" font-weight="${idx===intra.openIdx?'bold':'normal'}" fill="${idx===intra.openIdx?'#818CF8':'#94A3B8'}" opacity="${isNearNow?'0.25':'1'}" class="font-mono">${s.bjt}</text>
+          <text x="${xOf(idx)}" y="${H-16}" text-anchor="middle" font-size="10" font-weight="${idx===intra.openIdx?'bold':'normal'}" fill="${idx===intra.openIdx?'#818CF8':'#94A3B8'}" opacity="${isNearNow?'0.25':'1'}" class="font-mono">${s.bjt}</text>
           <text x="${xOf(idx)}" y="${H-4}" text-anchor="middle" font-size="8.5" fill="#475569" opacity="${isNearNow?'0.25':'1'}" class="font-mono">${s.est}E</text>
           `;
         }).join("")}
@@ -694,7 +746,243 @@
       </svg>`;
     }
 
-    function render() {
+    // ✨ 修复 Bug 2：采用局部无损 DOM 更新架构 (updateDynamicSections)，滑块永远不会被销毁重建，支持 60FPS 丝滑拖动！
+    function updateDynamicSections() {
+      if (!state.isAuthed) return;
+      const timeInfo = getRealTimeSlotInfo();
+      const m = computeAll();
+      const intra = computeIntraday(m, timeInfo);
+      const { cfg, curP, activeTheoNow, spreadPct, isExtremeBarrierBreached, isShortFrozen, isReversionPhase, phaseTitle, gammaStatus, sysTrack, lockedTrack, is3x, lockedHigh } = m;
+
+      const elLiveBtn = document.getElementById("liveBtn");
+      if (elLiveBtn) {
+        elLiveBtn.className = `px-2.5 py-1 text-xs font-bold rounded-lg border cursor-pointer ${state.isLive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`;
+        elLiveBtn.innerHTML = state.isLive ? `🟢 ${state.liveStatus}` : `🟡 手动沙盘模式 (点此恢复自动)`;
+      }
+      const elClock = document.getElementById("clockBadge");
+      if (elClock) elClock.innerHTML = `🕒 北京 ${timeInfo.bjtStr} | 美东 ${timeInfo.estStr} EST`;
+      const elCount = document.getElementById("countdownBadge");
+      if (elCount) elCount.innerHTML = `⏱️ ${timeInfo.countdownText}`;
+      const elTitle = document.getElementById("headerTitle");
+      if (elTitle) elTitle.innerHTML = `【周期系统逻辑理论 V3.9 · 24H全天候版】${state.ticker} - ${cfg.name}`;
+
+      const elTickers = document.getElementById("tickerButtons");
+      if (elTickers) {
+        elTickers.innerHTML = TICKER_ORDER.map(sym => `
+          <button onclick="selectTicker('${sym}')" class="px-2.5 py-1.5 text-xs font-bold rounded-xl transition ${state.ticker===sym ? (RAW_DB[sym].isInverse?'bg-purple-900 text-white shadow-md scale-105':'bg-slate-900 text-white shadow-md scale-105') : (RAW_DB[sym].isInverse?'bg-purple-50 text-purple-700 border border-purple-200':'bg-slate-100 text-slate-700')}">
+            ${sym} ($${(state.prices[sym]||RAW_DB[sym].regClose).toFixed(2)})
+          </button>
+        `).join("") + `<button onclick="copyReport()" class="ml-1 px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white">${state.copied?'✅ 已复制':'📋 复制完整战报'}</button>`;
+      }
+
+      const elSliderLabel = document.getElementById("sliderStatusLabel");
+      if (elSliderLabel) elSliderLabel.innerHTML = `${state.isLive?'🟢 实时价格锚点':'🟡 手动沙盘验证'} (${state.ticker})`;
+      const elSliderVal = document.getElementById("sliderPriceVal");
+      if (elSliderVal) elSliderVal.innerHTML = `$${curP.toFixed(2)}`;
+
+      const elGamma = document.getElementById("gammaBanner");
+      if (elGamma) {
+        elGamma.className = `p-3.5 rounded-2xl border ${gammaStatus.bg} flex flex-wrap items-center justify-between gap-2 shadow-sm font-mono text-xs`;
+        elGamma.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-extrabold text-[13px]">${gammaStatus.badge}</span>
+              <span class="text-[11px] opacity-80">| 今日理论位 $${activeTheoNow.toFixed(2)} | 阶段极值 $${lockedHigh.toFixed(2)} | 真实VWAP $${intra.vwap.toFixed(2)}</span>
+            </div>
+            <div class="text-[11px] mt-1 font-semibold opacity-95">${gammaStatus.desc}</div>
+          </div>
+          <span class="px-3 py-1.5 rounded-xl text-white font-bold ${gammaStatus.btnCls} shadow-sm">${gammaStatus.btnText}</span>
+        `;
+      }
+
+      const elBarrier = document.getElementById("barrierBanner");
+      if (elBarrier) {
+        elBarrier.innerHTML = `
+          <div class="p-3 rounded-2xl border ${isExtremeBarrierBreached ? 'bg-rose-50 border-rose-400 text-rose-900 animate-pulse' : (isShortFrozen ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-emerald-50 border-emerald-300 text-emerald-900')} flex items-center justify-between shadow-sm">
+            <div>
+              <span class="font-extrabold text-[13px]">
+                ${cfg.isInverse ? '🛡️ 【反向对冲标尺】正股负乖离已归零，空头ETF右侧通道开启' : (isExtremeBarrierBreached ? '🚨 【极端负乖离红线】触发 (乖离率 ≤ -35%)' : (isShortFrozen ? '⚠️ 【负乖离未收敛】禁空熔断保护激活中' : '🟢 【负乖离已收敛至 -10% 以内】对冲信号已解冻'))}
+              </span>
+              <div class="text-[11px] mt-0.5 opacity-90">
+                ${isShortFrozen ? '铁律：负乖离收敛至 -10% 前，严禁左侧猜顶，做市商负Gamma随时引爆暴力轧空！' : '当前负乖离已完全修复，允许结合伽马脉冲见顶信号执行右侧逢高做空/买SOXS'}
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg text-white font-bold ${isShortFrozen ? 'bg-rose-600' : 'bg-emerald-600'}">
+              ${isShortFrozen ? '🔒 严禁做空' : '🔓 允许对冲'}
+            </span>
+          </div>
+
+          <div class="p-3 rounded-2xl border bg-indigo-50 border-indigo-200 text-indigo-950 flex items-center justify-between shadow-sm">
+            <div>
+              <span class="font-extrabold text-[13px]">${phaseTitle}</span>
+              <div class="text-[11px] mt-0.5 text-indigo-800">
+                ${isReversionPhase && !cfg.isInverse ? '当前上涨纯属对前期断崖超跌的报复性修复，未站稳母版前不可定性为主升浪' : '负乖离已彻底归零，此位置起正式由周期母版波浪模型接管后续推演'}
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg text-white font-bold bg-indigo-600">
+              ${isReversionPhase && !cfg.isInverse ? '均值回归段' : '标准周期波浪'}
+            </span>
+          </div>
+        `;
+      }
+
+      const elDiag = document.getElementById("diagPanel");
+      if (elDiag) {
+        elDiag.innerHTML = `
+          <div class="bg-[#FFF1F2] border border-[#F43F5E] rounded-xl p-3.5 text-xs md:text-[13px] space-y-1.5 font-mono text-slate-800">
+            <div class="font-bold text-rose-700">● 当前相位诊断: ${cfg.phaseDesc}</div>
+            <div>● 实盘 vs 周期标尺: 最新现价 <b class="text-rose-600">$${curP.toFixed(2)}</b> (昨正盘收 $${cfg.regClose.toFixed(2)} | 阶段极值 <b>$${lockedHigh.toFixed(2)}</b>) | 今日理论位 <b>$${activeTheoNow.toFixed(2)}</b> (乖离 <b class="text-rose-600">${spreadPct>=0?'+'+spreadPct.toFixed(1)+'%':spreadPct.toFixed(1)+'%'}</b>)</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+              <div class="p-2.5 rounded-lg bg-white border-2 border-blue-500">
+                <div class="font-bold text-blue-900">💎【周期系统逻辑理论：乖离均值回归动态轨】</div>
+                <div class="text-xs font-bold text-blue-800 mt-1">
+                  ▸ 转弱位 $${sysTrack.pivot.toFixed(2)} ➔ 11/18中继 <b>$${sysTrack.p1118.toFixed(2)}</b> ➔ <span class="bg-blue-100 px-1 rounded">11/26${cfg.isInverse?'止盈峰':'黄金坑'} $${sysTrack.p1126.toFixed(2)}</span> ➔ 12/10${cfg.isInverse?'回撤底':'跨年峰'} <b>$${sysTrack.p1210.toFixed(2)}</b>
+                </div>
+              </div>
+              <div class="p-2.5 rounded-lg bg-white border border-purple-400">
+                <div class="font-bold text-purple-900">${is3x ? '🛡️【3x杠杆磨损修正：左脚锁锚对照轨】' : '🛡️【1倍母体无杠杆磨损：10/14原始基准轨】'}</div>
+                <div class="text-xs font-bold text-purple-800 mt-1">
+                  ▸ ${is3x ? `扣除 ${cfg.betaDecay*100}% 震荡磨损` : '1倍指数零磨损基准'} ➔ 11/18中继 <b>$${lockedTrack.p1118.toFixed(2)}</b> ➔ <span class="bg-purple-100 px-1 rounded">11/26${cfg.isInverse?'止盈峰':'黄金坑'} $${lockedTrack.p1126.toFixed(2)}</span> ➔ 12/10${cfg.isInverse?'底':'峰'} <b>$${lockedTrack.p1210.toFixed(2)}</b>
+                </div>
+              </div>
+            </div>
+            <div class="pt-1 text-amber-900 font-bold">▸ 防御铁律: ${cfg.ironRule}</div>
+          </div>
+        `;
+      }
+
+      const elIntra = document.getElementById("intraSection");
+      if (elIntra) {
+        if (state.viewMode === "both" || state.viewMode === "intraday") {
+          elIntra.style.display = "block";
+          elIntra.innerHTML = `
+            <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2.5 py-0.5 text-xs font-bold rounded-md bg-indigo-600 text-white">LIVE 24H 全天候分时雷达</span>
+                  <span class="px-2.5 py-0.5 text-xs font-bold rounded-md ${intra.isBlowOffTop?'bg-rose-100 text-rose-800 border border-rose-300':'bg-emerald-100 text-emerald-800 border border-emerald-300'}">
+                    ${intra.isBlowOffTop ? `⚠️ 当前处于：摸顶后亚盘缩量右肩反抽 & 均值回归相` : '📈 当前处于：低吸筑底与正向反攻相'}
+                  </span>
+                  <h2 class="text-base md:text-lg font-bold text-slate-900">${state.ticker} 24H (亚盘夜盘 + 欧美盘前 + 22:30美股正盘) 全链路推演图</h2>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="setIntra('A')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='A'?'bg-indigo-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🎯 剧本A: ${intra.isBlowOffTop?'右肩受阻回落 ➔ 跌破VWAP回归中继 (75% 主推)':'回踩筑右脚 ➔ 攻克VWAP反攻 (75% 主推)'}</button>
+                <button onclick="setIntra('B')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='B'?'bg-emerald-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🚀 剧本B: ${intra.isBlowOffTop?`二次上冲测试昨收 ($${cfg.regClose.toFixed(1)}) 阻力 (15%)`:'浅踩直接逼空冲击阻力带 (15%)'}</button>
+                <button onclick="setIntra('C')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='C'?'bg-amber-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">⚠️ 剧本C: ${intra.isBlowOffTop?`直接击穿 $${intra.demandLow.toFixed(1)} 颈线加速寻底 (10%)`:'开盘插针扫损 ➔ V反收长下影 (10%)'}</button>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+              <div class="text-xs font-bold text-slate-700 mb-2.5 flex flex-wrap items-center justify-between font-mono">
+                <span>🗺️ 【${state.ticker} 24H 四步作战自动推演流程图】（横轴已全面打通 08:00 亚盘夜盘 ➔ 16:00 盘前 ➔ 22:30 正盘）</span>
+                <span class="text-indigo-600 font-extrabold">当前激活：剧本${state.intraScenario}</span>
+              </div>
+              ${intra.isBlowOffTop ? `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
+                  <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-600 border border-slate-200">
+                    <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 亚盘缩量筑右肩</span><span class="bg-slate-100 px-2 py-0.5 rounded">08:00-16:00</span></div>
+                    <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">受制昨收: $${cfg.regClose.toFixed(2)} (极值$${lockedHigh.toFixed(1)})</div>
+                    <div class="text-[11px] text-slate-600 mt-1.5">昨盘后暴跌后今早亚盘缩量反抽，受制于 $${cfg.regClose.toFixed(2)}~$${activeTheoNow.toFixed(2)} 阻力区，逢高布空</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
+                    <div class="flex justify-between text-rose-900 font-bold"><span>STEP 2 · 盘前~开盘诱多窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">16:00-23:15</span></div>
+                    <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">右肩测试: $${intra.microRes.toFixed(2)}</div>
+                    <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">🚨 欧美机构盘口恢复报价，反抽难破 $${intra.majorSupLow.toFixed(1)}，为多单清仓/右侧建空点</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-amber-50/80 border-l-4 border-l-amber-600 border border-amber-200">
+                    <div class="flex justify-between text-amber-900 font-bold"><span>STEP 3 · 跌穿均线转空段</span><span class="bg-amber-100 px-2 py-0.5 rounded">23:15-02:00</span></div>
+                    <div class="text-amber-700 font-extrabold text-[15px] mt-1.5">失守 VWAP: $${intra.vwap.toFixed(2)}</div>
+                    <div class="text-[11px] text-amber-900 mt-1.5 font-semibold">📉 放量跌穿分时均价线($${intra.vwap.toFixed(2)})及盘后基准($${(cfg.postClose||intra.vwap).toFixed(2)})，右侧加空</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200">
+                    <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 4 · 颈线击穿回归窗</span><span class="bg-indigo-100 px-2 py-0.5 rounded">02:00-05:00</span></div>
+                    <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">下探支撑: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
+                    <div class="text-[11px] text-indigo-900 mt-1.5 font-semibold">🎯 考验昨低颈线($${cfg.intraLow.toFixed(2)})，一旦失守直扑 11/18 理论中继($${sysTrack.p1118.toFixed(2)})</div>
+                  </div>
+                </div>
+              ` : `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
+                  <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-500 border border-slate-200">
+                    <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 亚盘/盘前蓄势</span><span class="bg-slate-100 px-2 py-0.5 rounded">08:00-22:30</span></div>
+                    <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">测试微阻 $${intra.microRes.toFixed(2)}</div>
+                    <div class="text-[11px] text-slate-600 mt-1.5">低位缩量回踩确认支撑，等待 22:30 正盘放量点火</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-emerald-50/80 border-l-4 border-l-emerald-600 border border-emerald-200">
+                    <div class="flex justify-between text-emerald-800 font-bold"><span>STEP 2 · 开盘筑右脚窗</span><span class="bg-emerald-100 px-2 py-0.5 rounded">22:30-23:15</span></div>
+                    <div class="text-emerald-700 font-extrabold text-[15px] mt-1.5">回踩低吸区: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
+                    <div class="text-[11px] text-emerald-800 mt-1.5 font-semibold">🎯 开盘回踩右脚不破，为右侧最佳分批建仓/加仓点</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200">
+                    <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 3 · 盘中主升攻克段</span><span class="bg-indigo-100 px-2 py-0.5 rounded">23:15-02:30</span></div>
+                    <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">攻克 VWAP: $${intra.vwap.toFixed(2)}</div>
+                    <div class="text-[11px] text-indigo-800 mt-1.5 font-semibold">🚀 放量站稳分时VWAP均线($${intra.vwap.toFixed(2)})，触发主升浪加速</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
+                    <div class="flex justify-between text-rose-900 font-bold"><span>STEP 4 · 尾盘冲高目标窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">02:30-05:00</span></div>
+                    <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">冲击目标: $${intra.majorSupLow.toFixed(2)}~$${intra.majorSupHigh.toFixed(2)}</div>
+                    <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">💰 尾盘冲击上方阻力带，波段底仓继续持有看 11/18 节点</div>
+                  </div>
+                </div>
+              `}
+            </div>
+            <div class="w-full overflow-x-auto">${buildIntraSvg(intra, m)}</div>
+          `;
+        } else {
+          elIntra.style.display = "none";
+        }
+      }
+
+      const elMacro = document.getElementById("macroSection");
+      if (elMacro) {
+        if (state.viewMode === "both" || state.viewMode === "macro") {
+          elMacro.style.display = "block";
+          elMacro.innerHTML = `
+            <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h2 class="text-base md:text-lg font-bold text-slate-900">📅 【个股量化实盘推演 V3.9 · 周期系统逻辑理论乖离均值回归校准】${state.ticker} - ${cfg.name}</h2>
+                <p class="text-xs text-slate-500 font-mono mt-0.5">黑色实线: 逐日真实K线收盘价 (已录入11/11收盘 $${cfg.regClose.toFixed(2)}) · 紫色高亮区: 做市商负 Gamma 逼空走廊 · 蓝色粗虚线: 乖离均值回归动态轨</p>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button onclick="setEngine('dual')" class="px-3 py-1.5 text-xs font-bold rounded-xl ${state.cycleEngine==='dual'?'bg-indigo-600 text-white shadow':'bg-slate-100 text-slate-600'}">🔥 双轨同屏</button>
+                <button onclick="setEngine('sys')" class="px-3 py-1.5 text-xs font-bold rounded-xl ${state.cycleEngine==='sys'?'bg-blue-600 text-white shadow':'bg-slate-100 text-slate-600'}">💎 仅看周期系统逻辑轨 (11/26 ➔ $${sysTrack.p1126.toFixed(2)})</button>
+                <button onclick="setEngine('locked')" class="px-3 py-1.5 text-xs font-bold rounded-xl ${state.cycleEngine==='locked'?'bg-purple-700 text-white shadow':'bg-slate-100 text-slate-600'}">🛡️ 仅看${is3x?'3x磨损锁锚轨':'10/14母版轨'} (11/26 ➔ $${lockedTrack.p1126.toFixed(2)})</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+              <div class="p-3 rounded-xl bg-amber-50/90 border-l-4 border-l-amber-500 border border-amber-200">
+                <div class="text-amber-900 font-bold">PHASE 1 · 当前实盘锚点 (${state.anchorDt})</div>
+                <div class="text-amber-700 font-extrabold text-sm mt-1">现价: $${curP.toFixed(2)}</div>
+                <div class="text-[11px] text-amber-800 mt-1">今日周期系统理论位: $${activeTheoNow.toFixed(2)}</div>
+              </div>
+              <div class="p-3 rounded-xl bg-purple-50/90 border-l-4 border-l-purple-600 border border-purple-200">
+                <div class="text-purple-900 font-bold">PHASE 2 · 11/18 震荡中继</div>
+                <div class="text-purple-700 font-extrabold text-sm mt-1">系统逻辑轨 $${sysTrack.p1118.toFixed(2)} | ${is3x?'磨损轨':'母版轨'} $${lockedTrack.p1118.toFixed(2)}</div>
+                <div class="text-[11px] text-purple-800 mt-1">${cfg.isInverse ? '空头主升第一中继目标，可止盈50%' : '回撤第一目标中继，空单减半锁利'}</div>
+              </div>
+              <div class="p-3 rounded-xl bg-blue-50/90 border-l-4 border-l-blue-600 border border-blue-300">
+                <div class="text-blue-900 font-bold">PHASE 3 · 11/26 ${cfg.isInverse ? '终极止盈波峰' : '终极黄金坑'}</div>
+                <div class="text-blue-700 font-extrabold text-sm mt-1">系统逻辑轨 $${sysTrack.p1126.toFixed(2)} | ${is3x?'磨损轨':'母版轨'} $${lockedTrack.p1126.toFixed(2)}</div>
+                <div class="text-[11px] text-blue-900 mt-1 font-semibold">${cfg.isInverse ? '🚨 空头ETF终极波峰，必须100%清仓止盈' : '🎯 W底黄金右脚，战略级满仓抄底点'}</div>
+              </div>
+              <div class="p-3 rounded-xl bg-emerald-50/90 border-l-4 border-l-emerald-600 border border-emerald-200">
+                <div class="text-emerald-900 font-bold">PHASE 4 · 12/10 ${cfg.isInverse ? '跨年回撤谷底' : '跨年主升峰'}</div>
+                <div class="text-emerald-700 font-extrabold text-sm mt-1">系统逻辑轨 $${sysTrack.p1210.toFixed(2)} | ${is3x?'磨损轨':'母版轨'} $${lockedTrack.p1210.toFixed(2)}</div>
+                <div class="text-[11px] text-emerald-800 mt-1">${cfg.isInverse ? '⚠️ 正股跨年主升期，严禁持有多单过节' : '🚀 圣诞跨年主升浪波峰兑现区'}</div>
+              </div>
+            </div>
+
+            <div class="w-full overflow-x-auto">${buildMacroSvg(m)}</div>
+          `;
+        } else {
+          elMacro.style.display = "none";
+        }
+      }
+    }
+
+    // 完整骨架渲染 (仅在登录、切换标的、切换Clean模式时调用一次，保护滑块DOM不丢失焦点)
+    function renderFullShell() {
       const root = document.getElementById("app");
       if (!state.isAuthed) {
         root.innerHTML = `
@@ -702,7 +990,7 @@
             <div class="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 text-white">
               <div class="text-center space-y-2">
                 <div class="text-3xl">🛡️</div>
-                <h1 class="text-xl font-bold">【周期系统逻辑理论 V3.8 · 实时推演终端】</h1>
+                <h1 class="text-xl font-bold">【周期系统逻辑理论 V3.9 · 实时推演终端】</h1>
                 <p class="text-xs text-slate-400 font-mono">VIP 内部量化监控终端 · 请输入访问口令解锁</p>
               </div>
               <form id="loginForm" class="space-y-4">
@@ -719,34 +1007,26 @@
             const val = document.getElementById("pinInput").value.trim();
             if (val === ACCESS_PIN) {
               try { localStorage.setItem(AUTH_KEY, ACCESS_PIN); } catch (err) {}
-              state.isAuthed = true; state.pinError = false; render();
+              state.isAuthed = true; state.pinError = false; renderFullShell();
             } else {
-              state.pinError = true; render();
+              state.pinError = true; renderFullShell();
             }
           };
         }
         return;
       }
 
-      const timeInfo = getRealTimeSlotInfo();
-      const m = computeAll();
-      const intra = computeIntraday(m, timeInfo);
-      const { cfg, curP, activeTheoNow, spreadPct, isExtremeBarrierBreached, isShortFrozen, isReversionPhase, phaseTitle, gammaStatus, turboCeiling, sysTrack, lockedTrack, is3x, lockedHigh } = m;
+      const cfg = RAW_DB[state.ticker];
+      const curP = state.prices[state.ticker] || cfg.regClose;
 
       root.innerHTML = `
         <header class="flex flex-wrap justify-between items-center bg-white px-4 md:px-6 py-3.5 rounded-2xl shadow-sm border border-slate-200 gap-3">
           <div>
             <div class="flex items-center gap-2 flex-wrap">
-              <button onclick="toggleLive()" class="px-2.5 py-1 text-xs font-bold rounded-lg border cursor-pointer ${state.isLive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-amber-50 text-amber-700 border-amber-300'}">
-                ${state.isLive ? `🟢 ${state.liveStatus}` : `🟡 手动沙盘模式 (点此恢复自动)`}
-              </button>
-              <span class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-900 text-amber-300">
-                🕒 北京 ${timeInfo.bjtStr} | 美东 ${timeInfo.estStr} EST
-              </span>
-              <span class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
-                ⏱️ ${timeInfo.countdownText}
-              </span>
-              <h1 class="text-base md:text-lg font-bold text-slate-900">【周期系统逻辑理论 V3.8 · 全功能集成版】${state.ticker} - ${cfg.name}</h1>
+              <button id="liveBtn" onclick="toggleLive()"></button>
+              <span id="clockBadge" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-900 text-amber-300"></span>
+              <span id="countdownBadge" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200"></span>
+              <h1 id="headerTitle" class="text-base md:text-lg font-bold text-slate-900"></h1>
             </div>
             <div class="flex items-center gap-2 mt-2 flex-wrap">
               <button onclick="setView('both')" class="px-2.5 py-1 text-xs font-bold rounded-lg ${state.viewMode==='both'?'bg-slate-900 text-white':'bg-slate-100 text-slate-600'}">⚡ 日内+宏观双擎同屏</button>
@@ -756,64 +1036,19 @@
               <button onclick="logout()" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-500">🔒 锁定</button>
             </div>
           </div>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${TICKER_ORDER.map(sym => `
-              <button onclick="selectTicker('${sym}')" class="px-2.5 py-1.5 text-xs font-bold rounded-xl transition ${state.ticker===sym ? (RAW_DB[sym].isInverse?'bg-purple-900 text-white shadow-md scale-105':'bg-slate-900 text-white shadow-md scale-105') : (RAW_DB[sym].isInverse?'bg-purple-50 text-purple-700 border border-purple-200':'bg-slate-100 text-slate-700')}">
-                ${sym} ($${(state.prices[sym]||RAW_DB[sym].regClose).toFixed(2)})
-              </button>
-            `).join("")}
-            <button onclick="copyReport()" class="ml-1 px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white">${state.copied?'✅ 已复制':'📋 复制完整战报'}</button>
-          </div>
+          <div id="tickerButtons" class="flex items-center gap-1.5 flex-wrap"></div>
         </header>
 
-        <!-- ✨ 【模块 6】伽马脉冲见顶三级检测雷达 (Gamma Pulse Peak Detector) -->
-        <div class="p-3.5 rounded-2xl border ${gammaStatus.bg} flex flex-wrap items-center justify-between gap-2 shadow-sm font-mono text-xs">
-          <div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="font-extrabold text-[13px]">${gammaStatus.badge}</span>
-              <span class="text-[11px] opacity-80">| 今日理论位 $${activeTheoNow.toFixed(2)} | 日内极值 $${lockedHigh.toFixed(2)} | 真实VWAP $${intra.vwap.toFixed(2)}</span>
-            </div>
-            <div class="text-[11px] mt-1 font-semibold opacity-95">${gammaStatus.desc}</div>
-          </div>
-          <span class="px-3 py-1.5 rounded-xl text-white font-bold ${gammaStatus.btnCls} shadow-sm">${gammaStatus.btnText}</span>
-        </div>
-
-        <!-- ✨ 【模块 1 & 2】极端负乖离红线 + 阶段定性状态机横幅 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs">
-          <div class="p-3 rounded-2xl border ${isExtremeBarrierBreached ? 'bg-rose-50 border-rose-400 text-rose-900 animate-pulse' : (isShortFrozen ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-emerald-50 border-emerald-300 text-emerald-900')} flex items-center justify-between shadow-sm">
-            <div>
-              <span class="font-extrabold text-[13px]">
-                ${isExtremeBarrierBreached ? '🚨 【极端负乖离红线】触发 (乖离率 ≤ -35%)' : (isShortFrozen ? '⚠️ 【负乖离未收敛】禁空熔断保护激活中' : '🟢 【负乖离已收敛至 -10% 以内】对冲信号已解冻')}
-              </span>
-              <div class="text-[11px] mt-0.5 opacity-90">
-                ${isShortFrozen ? '铁律：负乖离收敛至 -10% 前，严禁左侧猜顶，做市商负Gamma随时引爆暴力轧空！' : '当前负乖离已完全修复，允许结合伽马脉冲见顶信号执行右侧对冲'}
-              </div>
-            </div>
-            <span class="px-2.5 py-1 rounded-lg text-white font-bold ${isShortFrozen ? 'bg-rose-600' : 'bg-emerald-600'}">
-              ${isShortFrozen ? '🔒 严禁做空' : '🔓 允许对冲'}
-            </span>
-          </div>
-
-          <div class="p-3 rounded-2xl border bg-indigo-50 border-indigo-200 text-indigo-950 flex items-center justify-between shadow-sm">
-            <div>
-              <span class="font-extrabold text-[13px]">${phaseTitle}</span>
-              <div class="text-[11px] mt-0.5 text-indigo-800">
-                ${isReversionPhase ? '当前上涨纯属对前期断崖超跌的报复性修复，未站稳母版前不可定性为主升浪' : '负乖离已彻底归零，此位置起正式由周期母版波浪模型接管后续推演'}
-              </div>
-            </div>
-            <span class="px-2.5 py-1 rounded-lg text-white font-bold bg-indigo-600">
-              ${isReversionPhase ? '均值回归段' : '标准周期波浪'}
-            </span>
-          </div>
-        </div>
+        <div id="gammaBanner"></div>
+        <div id="barrierBanner" class="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-xs"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
           ${!state.cleanShot ? `
             <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-5 flex flex-col justify-between">
               <div>
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-sm font-bold text-slate-800">${state.isLive?'🟢 实时价格锚点':'🟡 手动沙盘验证'} (${state.ticker})</span>
-                  <span class="text-lg font-mono font-bold text-indigo-600">$${curP.toFixed(2)}</span>
+                  <span id="sliderStatusLabel" class="text-sm font-bold text-slate-800"></span>
+                  <span id="sliderPriceVal" class="text-lg font-mono font-bold text-indigo-600"></span>
                 </div>
                 <input id="priceSlider" type="range" min="${cfg.minP}" max="${cfg.maxP}" step="${cfg.step}" value="${curP}" class="w-full accent-indigo-600 cursor-pointer"/>
                 <div class="flex justify-between text-[11px] text-slate-400 font-mono mt-1 mb-3">
@@ -830,233 +1065,118 @@
             </div>
           ` : ""}
 
-          <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 ${state.cleanShot?'lg:col-span-12':'lg:col-span-7'}">
-            <div class="bg-[#FFF1F2] border border-[#F43F5E] rounded-xl p-3.5 text-xs md:text-[13px] space-y-1.5 font-mono text-slate-800">
-              <div class="font-bold text-rose-700">● 当前相位诊断: ${cfg.phaseDesc}</div>
-              <div>● 实盘 vs 周期标尺: 最新现价 <b class="text-rose-600">$${curP.toFixed(2)}</b> (昨正盘收 $${cfg.regClose.toFixed(2)} | 日内高点 <b>$${lockedHigh.toFixed(2)}</b>) | 今日理论位 <b>$${activeTheoNow.toFixed(2)}</b> (乖离 <b class="text-rose-600">${spreadPct>=0?'+'+spreadPct.toFixed(1)+'%':spreadPct.toFixed(1)+'%'}</b>)</div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
-                <div class="p-2.5 rounded-lg bg-white border-2 border-blue-500">
-                  <div class="font-bold text-blue-900">💎【周期系统逻辑理论：乖离均值回归动态轨】</div>
-                  <div class="text-xs font-bold text-blue-800 mt-1">
-                    ▸ 转弱位 $${sysTrack.pivot.toFixed(2)} ➔ 11/18中继 <b>$${sysTrack.p1118.toFixed(2)}</b> ➔ <span class="bg-blue-100 px-1 rounded">11/26黄金坑 $${sysTrack.p1126.toFixed(2)}</span> ➔ 12/10峰 <b>$${sysTrack.p1210.toFixed(2)}</b>
-                  </div>
-                </div>
-                <div class="p-2.5 rounded-lg bg-white border border-purple-400">
-                  <div class="font-bold text-purple-900">${is3x ? '🛡️【3x杠杆磨损修正：左脚锁锚对照轨】' : '🛡️【1倍母体无杠杆磨损：10/14原始基准轨】'}</div>
-                  <div class="text-xs font-bold text-purple-800 mt-1">
-                    ▸ ${is3x ? `扣除 ${cfg.betaDecay*100}% 震荡磨损` : '1倍指数零磨损基准'} ➔ 11/18中继 <b>$${lockedTrack.p1118.toFixed(2)}</b> ➔ <span class="bg-purple-100 px-1 rounded">11/26黄金坑 $${lockedTrack.p1126.toFixed(2)}</span> ➔ 12/10峰 <b>$${lockedTrack.p1210.toFixed(2)}</b>
-                  </div>
-                </div>
-              </div>
-              <div class="pt-1 text-amber-900 font-bold">▸ 防御铁律: ${cfg.ironRule}</div>
-            </div>
-          </div>
+          <div id="diagPanel" class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 ${state.cleanShot?'lg:col-span-12':'lg:col-span-7'}"></div>
         </div>
 
-        ${(state.viewMode === "both" || state.viewMode === "intraday") ? `
-          <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border-2 border-indigo-500/30 space-y-4">
-            <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
-              <div>
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="px-2.5 py-0.5 text-xs font-bold rounded-md bg-indigo-600 text-white">LIVE 日内分时雷达</span>
-                  <span class="px-2.5 py-0.5 text-xs font-bold rounded-md ${intra.isBlowOffTop?'bg-rose-100 text-rose-800 border border-rose-300':'bg-emerald-100 text-emerald-800 border border-emerald-300'}">
-                    ${intra.isBlowOffTop ? `⚠️ 当前处于：超拔周期理论轨 ($${activeTheoNow.toFixed(2)}) 伽马冲顶博弈相` : '📈 当前处于：超跌修复与负Gamma弹射相'}
-                  </span>
-                  <h2 class="text-base md:text-lg font-bold text-slate-900">${state.ticker} 今日 24H 实盘轨迹 + 正盘下半场分时推演图</h2>
-                </div>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <button onclick="setIntra('A')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='A'?'bg-indigo-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🎯 剧本A: ${intra.isBlowOffTop?'刺针衰竭回落 ➔ 跌破VWAP回归中继 (75% 主推)':'开盘回踩筑右脚 ➔ 攻克VWAP反攻 (75% 主推)'}</button>
-                <button onclick="setIntra('B')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='B'?'bg-emerald-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🚀 剧本B: ${intra.isBlowOffTop?`高位横盘抗跌 ➔ 尾盘守住VWAP ($${intra.vwap.toFixed(1)}) (15%)`:'浅踩直接逼空冲击阻力带 (15%)'}</button>
-                <button onclick="setIntra('C')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='C'?'bg-amber-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">⚠️ 剧本C: ${intra.isBlowOffTop?`深度多杀多回补昨收 ($${cfg.regClose.toFixed(1)}) 缺口 (10%)`:'开盘插针扫损 ➔ V反收长下影 (10%)'}</button>
-              </div>
-            </div>
-
-            <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-              <div class="text-xs font-bold text-slate-700 mb-2.5 flex flex-wrap items-center justify-between font-mono">
-                <span>🗺️ 【${state.ticker} 日内 24H 四步作战自动推演流程图】（点位严格满足：顶部派发带 > 诱多/刺针位 > VWAP均线 > 下方回归中继带）</span>
-                <span class="text-indigo-600 font-extrabold">当前激活：剧本${state.intraScenario}</span>
-              </div>
-              ${intra.isBlowOffTop ? `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
-                  <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-600 border border-slate-200">
-                    <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 伽马冲顶超拔</span><span class="bg-slate-100 px-2 py-0.5 rounded">已兑现</span></div>
-                    <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">极值: $${lockedHigh.toFixed(2)} (理论$${activeTheoNow.toFixed(1)})</div>
-                    <div class="text-[11px] text-slate-600 mt-1.5">已刺穿今日周期理论天花板($${activeTheoNow.toFixed(2)})，多单只卖不买</div>
-                  </div>
-                  <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
-                    <div class="flex justify-between text-rose-900 font-bold"><span>STEP 2 · 刺针钝化观察窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">阶段二信号</span></div>
-                    <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">钝化阈值: < $${(lockedHigh*0.985).toFixed(2)}</div>
-                    <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">🚨 跌回 $${(lockedHigh*0.985).toFixed(2)} 下方即确认实值Call Gamma归零、买盘衰竭</div>
-                  </div>
-                  <div class="p-3.5 rounded-2xl bg-amber-50/80 border-l-4 border-l-amber-600 border border-amber-200">
-                    <div class="flex justify-between text-amber-900 font-bold"><span>STEP 3 · 跌穿均线转空段</span><span class="bg-amber-100 px-2 py-0.5 rounded">阶段三确认</span></div>
-                    <div class="text-amber-700 font-extrabold text-[15px] mt-1.5">失守 VWAP: $${intra.vwap.toFixed(2)}</div>
-                    <div class="text-[11px] text-amber-900 mt-1.5 font-semibold">📉 放量跌穿分时均价线($${intra.vwap.toFixed(2)})，做市商平账抛售，右侧追空/买SOXS</div>
-                  </div>
-                  <div class="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200">
-                    <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 4 · 均值回归寻底窗</span><span class="bg-indigo-100 px-2 py-0.5 rounded">波段目标</span></div>
-                    <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">回测支撑: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
-                    <div class="text-[11px] text-indigo-900 mt-1.5 font-semibold">🎯 受11/18理论中继($${sysTrack.p1118.toFixed(2)})引力牵引，回吐超调泡沫</div>
-                  </div>
-                </div>
-              ` : `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
-                  <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-500 border border-slate-200">
-                    <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 弹射点火阶段</span><span class="bg-slate-100 px-2 py-0.5 rounded">16:30-22:30</span></div>
-                    <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">测试微阻 $${intra.microRes.toFixed(2)}</div>
-                    <div class="text-[11px] text-slate-600 mt-1.5">做市商负Gamma走廊扫损，常规技术阻力失效</div>
-                  </div>
-                  <div class="p-3.5 rounded-2xl bg-emerald-50/80 border-l-4 border-l-emerald-600 border border-emerald-200">
-                    <div class="flex justify-between text-emerald-800 font-bold"><span>STEP 2 · 扫损冲顶决战窗</span><span class="bg-emerald-100 px-2 py-0.5 rounded">22:30-23:15</span></div>
-                    <div class="text-emerald-700 font-extrabold text-[15px] mt-1.5">回踩需求区: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
-                    <div class="text-[11px] text-emerald-800 mt-1.5 font-semibold">🎯 拒绝深度回调，做市商机械性对冲扫货拉升</div>
-                  </div>
-                  <div class="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200">
-                    <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 3 · 盘中强逼空段</span><span class="bg-indigo-100 px-2 py-0.5 rounded">23:15-02:30</span></div>
-                    <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">攻克 VWAP: $${intra.vwap.toFixed(2)}</div>
-                    <div class="text-[11px] text-indigo-800 mt-1.5 font-semibold">🚀 放量站稳分时VWAP均线($${intra.vwap.toFixed(2)})，触发全市场轧空</div>
-                  </div>
-                  <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
-                    <div class="flex justify-between text-rose-900 font-bold"><span>STEP 4 · 强行回归母版窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">02:30-05:00</span></div>
-                    <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">冲击目标: $${intra.majorSupHigh.toFixed(2)}</div>
-                    <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">💰 强行回归理论母版天花板，触及后空头信号方可解冻</div>
-                  </div>
-                </div>
-              `}
-            </div>
-            <div class="w-full overflow-x-auto">${buildIntraSvg(intra, m)}</div>
-          </div>
-        ` : ""}
-
-        ${(state.viewMode === "both" || state.viewMode === "macro") ? `
-          <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border-2 border-blue-500/30 space-y-4">
-            <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-3">
-              <div>
-                <h2 class="text-base md:text-lg font-bold text-slate-900">📅 【个股量化实盘推演 V3.8 · 周期系统逻辑理论乖离均值回归校准】${state.ticker} - ${cfg.name}</h2>
-                <p class="text-xs text-slate-500 font-mono mt-0.5">黑色实线: 逐日真实K线收盘价 (自然日比例) · 紫色高亮区: 做市商负 Gamma 逼空传导走廊 · 蓝色粗虚线: 乖离均值回归动态轨</p>
-              </div>
-              <div class="flex flex-wrap gap-1.5">
-                <button onclick="setEngine('dual')" class="px-3 py-1.5 text-xs font-bold rounded-xl ${state.cycleEngine==='dual'?'bg-indigo-600 text-white shadow':'bg-slate-100 text-slate-600'}">🔥 双轨同屏</button>
-                <button onclick="setEngine('sys')" class="px-3 py-1.5 text-xs font-bold rounded-xl ${state.cycleEngine==='sys'?'bg-blue-600 text-white shadow':'bg-slate-100 text-slate-600'}">💎 仅看周期系统逻辑轨 (11/26 ➔ $${sysTrack.p1126.toFixed(2)})</button>
-                <button onclick="setEngine('locked')" class="px-3 py-1.5 text-xs font-bold rounded-xl ${state.cycleEngine==='locked'?'bg-purple-700 text-white shadow':'bg-slate-100 text-slate-600'}">🛡️ 仅看${is3x?'3x磨损锁锚轨':'10/14母版轨'} (11/26 ➔ $${lockedTrack.p1126.toFixed(2)})</button>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-              <div class="p-3 rounded-xl bg-amber-50/90 border-l-4 border-l-amber-500 border border-amber-200">
-                <div class="text-amber-900 font-bold">PHASE 1 · 当前实盘锚点 (${state.anchorDt})</div>
-                <div class="text-amber-700 font-extrabold text-sm mt-1">现价: $${curP.toFixed(2)}</div>
-                <div class="text-[11px] text-amber-800 mt-1">周期系统逻辑理论位: $${activeTheoNow.toFixed(2)}</div>
-              </div>
-              <div class="p-3 rounded-xl bg-purple-50/90 border-l-4 border-l-purple-600 border border-purple-200">
-                <div class="text-purple-900 font-bold">PHASE 2 · 11/18 震荡中继</div>
-                <div class="text-purple-700 font-extrabold text-sm mt-1">系统逻辑轨 $${sysTrack.p1118.toFixed(2)} | ${is3x?'磨损轨':'母版轨'} $${lockedTrack.p1118.toFixed(2)}</div>
-                <div class="text-[11px] text-purple-800 mt-1">财报消化后回撤中继，空单减半锁利</div>
-              </div>
-              <div class="p-3 rounded-xl bg-blue-50/90 border-l-4 border-l-blue-600 border border-blue-300">
-                <div class="text-blue-900 font-bold">PHASE 3 · 11/26 终极黄金坑</div>
-                <div class="text-blue-700 font-extrabold text-sm mt-1">系统逻辑轨 $${sysTrack.p1126.toFixed(2)} | ${is3x?'磨损轨':'母版轨'} $${lockedTrack.p1126.toFixed(2)}</div>
-                <div class="text-[11px] text-blue-900 mt-1 font-semibold">🎯 W底黄金右脚，战略级满仓抄底点</div>
-              </div>
-              <div class="p-3 rounded-xl bg-emerald-50/90 border-l-4 border-l-emerald-600 border border-emerald-200">
-                <div class="text-emerald-900 font-bold">PHASE 4 · 12/10 跨年主升峰</div>
-                <div class="text-emerald-700 font-extrabold text-sm mt-1">系统逻辑轨 $${sysTrack.p1210.toFixed(2)} | ${is3x?'磨损轨':'母版轨'} $${lockedTrack.p1210.toFixed(2)}</div>
-                <div class="text-[11px] text-emerald-800 mt-1">🚀 圣诞跨年主升浪波峰兑现区</div>
-              </div>
-            </div>
-
-            <div class="w-full overflow-x-auto">${buildMacroSvg(m)}</div>
-          </div>
-        ` : ""}
+        <div id="intraSection" class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border-2 border-indigo-500/30 space-y-4"></div>
+        <div id="macroSection" class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border-2 border-blue-500/30 space-y-4"></div>
       `;
 
       const slider = document.getElementById("priceSlider");
       if (slider) {
-        slider.oninput = (e) => {
+        slider.addEventListener("input", (e) => {
           state.isLive = false;
           state.prices[state.ticker] = parseFloat(e.target.value);
-          render();
-        };
+          updateDynamicSections();
+        });
       }
+
+      updateDynamicSections();
     }
 
     window.toggleLive = (forceTrue) => {
       state.isLive = forceTrue ? true : !state.isLive;
       state.customBaseTheo = null;
-      state.anchorDt = "11/11";
-      render();
+      state.anchorDt = "11/12";
+      updateDynamicSections();
     };
-    window.setView = (v) => { state.viewMode = v; render(); };
-    window.setEngine = (e) => { state.cycleEngine = e; render(); };
-    window.setIntra = (s) => { state.intraScenario = s; render(); };
-    window.toggleClean = () => { state.cleanShot = !state.cleanShot; render(); };
-    window.logout = () => { try { localStorage.removeItem(AUTH_KEY); } catch(e){} state.isAuthed = false; render(); };
-    window.selectTicker = (sym) => { state.ticker = sym; state.customBaseTheo = null; state.anchorDt = "11/11"; render(); };
+    window.setView = (v) => { state.viewMode = v; renderFullShell(); };
+    window.setEngine = (e) => { state.cycleEngine = e; updateDynamicSections(); };
+    window.setIntra = (s) => { state.intraScenario = s; updateDynamicSections(); };
+    window.toggleClean = () => { state.cleanShot = !state.cleanShot; renderFullShell(); };
+    window.logout = () => { try { localStorage.removeItem(AUTH_KEY); } catch(e){} state.isAuthed = false; renderFullShell(); };
+    window.selectTicker = (sym) => { state.ticker = sym; state.customBaseTheo = null; state.anchorDt = "11/12"; renderFullShell(); };
     window.applyPreset = (idx) => {
       const p = RAW_DB[state.ticker].presets[idx];
       if (!p) return;
       state.isLive = false;
       state.prices[state.ticker] = p.val;
       state.customBaseTheo = p.baseTheo;
-      state.anchorDt = p.anchorDt || "11/11";
-      render();
+      state.anchorDt = p.anchorDt || "11/12";
+      const slider = document.getElementById("priceSlider");
+      if (slider) slider.value = p.val;
+      updateDynamicSections();
     };
     window.copyReport = () => {
       const m = computeAll();
-      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V3.8 全功能实盘战报】**\n` +
+      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V3.9 全天候实盘战报】**\n` +
         `● **伽马脉冲雷达**: ${m.gammaStatus.badge}\n` +
         `● **负乖离红线状态**: ${m.isShortFrozen ? '🚨 负乖离未收敛（做空熔断中）' : '🟢 负乖离已归零（允许右侧对冲）'}\n` +
         `● **阶段定性**: ${m.phaseTitle}\n` +
-        `● **现价锚点**: $${m.curP.toFixed(2)} | 今日理论位 $${m.activeTheoNow.toFixed(2)} (实时乖离 ${m.spreadPct.toFixed(1)}%)\n` +
-        `● **💎 [周期系统逻辑轨]**: 11/18中继 $${m.sysTrack.p1118.toFixed(2)} ➔ **11/26黄金坑 $${m.sysTrack.p1126.toFixed(2)}** ➔ 12/10主升峰 $${m.sysTrack.p1210.toFixed(2)}\n` +
-        `● **🛡️ [基准锁锚对照轨]**: 11/18中继 $${m.lockedTrack.p1118.toFixed(2)} ➔ **11/26黄金右脚 $${m.lockedTrack.p1126.toFixed(2)}** ➔ 12/10峰 $${m.lockedTrack.p1210.toFixed(2)}`;
+        `● **现价锚点 (${state.anchorDt})**: $${m.curP.toFixed(2)} | 今日理论位 $${m.activeTheoNow.toFixed(2)} (实时乖离 ${m.spreadPct.toFixed(1)}%)\n` +
+        `● **💎 [周期系统逻辑轨]**: 11/18中继 $${m.sysTrack.p1118.toFixed(2)} ➔ **11/26节点 $${m.sysTrack.p1126.toFixed(2)}** ➔ 12/10节点 $${m.sysTrack.p1210.toFixed(2)}\n` +
+        `● **🛡️ [基准锁锚对照轨]**: 11/18中继 $${m.lockedTrack.p1118.toFixed(2)} ➔ **11/26节点 $${m.lockedTrack.p1126.toFixed(2)}** ➔ 12/10节点 $${m.lockedTrack.p1210.toFixed(2)}`;
       navigator.clipboard.writeText(text);
-      state.copied = true; render();
-      setTimeout(() => { state.copied = false; render(); }, 2000);
+      state.copied = true; updateDynamicSections();
+      setTimeout(() => { state.copied = false; updateDynamicSections(); }, 2000);
     };
 
+    // ✨ 修复 Bug 7：双代理容灾 + 优先提取盘前/盘后/夜盘最新K线价格
     async function syncQuotes() {
       if (!state.isAuthed || !state.isLive) return;
       try {
         await Promise.all(TICKER_ORDER.map(async (sym) => {
           const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&range=1d&includePrePost=true`;
-          const pUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-          const r = await fetch(pUrl);
-          if (!r.ok) return;
-          const j = await r.json();
-          const res0 = j?.chart?.result?.[0];
-          const meta = res0?.meta;
-          const q = res0?.indicators?.quote?.[0];
-          if (meta) {
-            let latest = meta.regularMarketPrice;
-            let maxH = RAW_DB[sym].intraHigh, minL = RAW_DB[sym].intraLow, sumPV = 0, sumV = 0;
-            if (q && Array.isArray(q.close)) {
-              for (let k = 0; k < q.close.length; k++) {
-                const c = q.close[k], h = q.high?.[k], l = q.low?.[k], v = q.volume?.[k] || 0;
-                if (c !== null && c > 0) {
-                  latest = c;
-                  if (h && h > maxH) maxH = h;
-                  if (l && l < minL) minL = l;
-                  if (v > 0) { sumPV += c * v; sumV += v; }
+          const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+          ];
+          for (const pUrl of proxies) {
+            try {
+              const r = await fetch(pUrl);
+              if (!r.ok) continue;
+              const j = await r.json();
+              const res0 = j?.chart?.result?.[0];
+              const meta = res0?.meta;
+              const q = res0?.indicators?.quote?.[0];
+              if (meta) {
+                let latest = meta.postMarketPrice || meta.preMarketPrice || meta.regularMarketPrice;
+                let maxH = RAW_DB[sym].intraHigh, minL = RAW_DB[sym].intraLow, sumPV = 0, sumV = 0;
+                if (q && Array.isArray(q.close)) {
+                  for (let k = 0; k < q.close.length; k++) {
+                    const c = q.close[k], h = q.high?.[k], l = q.low?.[k], v = q.volume?.[k] || 0;
+                    if (c !== null && c > 0) {
+                      latest = c;
+                      if (h && h > maxH) maxH = h;
+                      if (l && l < minL) minL = l;
+                      if (v > 0) { sumPV += c * v; sumV += v; }
+                    }
+                  }
                 }
+                if (latest && latest > 0) {
+                  state.prices[sym] = parseFloat(latest.toFixed(2));
+                  if (sym === state.ticker) {
+                    const slider = document.getElementById("priceSlider");
+                    if (slider) slider.value = state.prices[sym];
+                  }
+                }
+                state.realIntraStats[sym] = {
+                  high: parseFloat(maxH.toFixed(2)),
+                  low: parseFloat(minL.toFixed(2)),
+                  vwap: sumV > 0 ? parseFloat((sumPV / sumV).toFixed(2)) : RAW_DB[sym].fixedVwap
+                };
+                break;
               }
-            }
-            if (latest && latest > 0) state.prices[sym] = parseFloat(latest.toFixed(2));
-            state.realIntraStats[sym] = {
-              high: parseFloat(maxH.toFixed(2)),
-              low: parseFloat(minL.toFixed(2)),
-              vwap: sumV > 0 ? parseFloat((sumPV / sumV).toFixed(2)) : RAW_DB[sym].fixedVwap
-            };
+            } catch (innerE) {}
           }
         }));
         state.liveStatus = `云端公网实时 (${getRealTimeSlotInfo().bjtStr})`;
-        render();
+        updateDynamicSections();
       } catch (e) {}
     }
 
-    render();
-    setInterval(() => { if (state.isAuthed) render(); }, 1000);
+    renderFullShell();
+    setInterval(() => { if (state.isAuthed) updateDynamicSections(); }, 1000);
     setInterval(syncQuotes, 8000);
     syncQuotes();
   </script>

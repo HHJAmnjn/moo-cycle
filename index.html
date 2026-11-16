@@ -1955,7 +1955,7 @@
           }
         }
 
-        // 默认 / 降级：云端免费 API
+        // 升级版云端 API：精准适配亚盘、盘前与正盘的多时段价格与盘后/盘前价提取
         await Promise.all(TICKER_ORDER.map(async (sym) => {
           const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&range=1d&includePrePost=true`;
           const proxies = [
@@ -1971,8 +1971,12 @@
               const meta = res0?.meta;
               const q = res0?.indicators?.quote?.[0];
               if (meta) {
-                let latest = meta.postMarketPrice || meta.preMarketPrice || meta.regularMarketPrice;
-                let maxH = RAW_DB[sym].intraHigh, minL = RAW_DB[sym].intraLow, sumPV = 0, sumV = 0;
+                // 多时段智能提取：优先取盘前/盘后实时价，若无则取 regularMarketPrice
+                let latest = meta.postMarketPrice !== undefined ? meta.postMarketPrice : (meta.preMarketPrice !== undefined ? meta.preMarketPrice : meta.regularMarketPrice);
+                if (!latest || isNaN(latest)) latest = meta.regularMarketPrice || RAW_DB[sym].regClose;
+
+                let maxH = meta.regularMarketDayHigh || RAW_DB[sym].intraHigh, minL = meta.regularMarketDayLow || RAW_DB[sym].intraLow;
+                let sumPV = 0, sumV = 0;
                 if (q && Array.isArray(q.close)) {
                   for (let k = 0; k < q.close.length; k++) {
                     const c = q.close[k], h = q.high?.[k], l = q.low?.[k], v = q.volume?.[k] || 0;

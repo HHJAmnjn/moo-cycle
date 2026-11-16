@@ -526,7 +526,6 @@
         ? curP * 1.01
         : Math.max(cfg.intraHigh, stat.high || 0, curP);
       
-      // 动态自适应重算 VWAP，确保现价与均价线永远严格联动
       const curVwap = stat.vwap || parseFloat((curP * (cfg.isInverse ? 0.992 : 1.008)).toFixed(2));
 
       const turboCeiling = is3x ? activeTheoNow * (1.0 + cfg.betaDecay * 0.55) : activeTheoNow * 1.015;
@@ -1106,8 +1105,8 @@
         <polyline fill="none" stroke="#38BDF8" stroke-width="3.2" stroke-linejoin="round" points="${pts.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
 
         <g transform="translate(${PAD_L + 12}, 10)">
-          <text x="0" y="12" font-size="10.5" font-weight="bold" fill="#38BDF8" class="font-mono">━━ 蓝色实线: 周期合成轨</text>
-          <text x="340" y="12" font-size="10.5" font-weight="bold" fill="#94A3B8" class="font-mono">┅┅ 灰色虚线: 宏观漂移中轴</text>
+          <text x="0" y="12" font-size="10.5" font-weight="bold" fill="#38BDF8" class="font-mono">━━ 蓝色实线: P(t)=P₀·e^(μt)·[1+A·C(t)] 周期合成轨</text>
+          <text x="340" y="12" font-size="10.5" font-weight="bold" fill="#94A3B8" class="font-mono">┅┅ 灰色虚线: 年化+${(mCfg.mu*100).toFixed(1)}% 宏观漂移中轴</text>
         </g>
 
         <circle cx="${xOf(0)}" cy="${yOf(P0)}" r="6" fill="#EF4444" stroke="#FFFFFF" stroke-width="2"/>

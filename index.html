@@ -418,6 +418,7 @@
     const state = {
       isAuthed: false,
       pinError: false,
+      dataSource: "cloud", // "cloud" (云端免费API) | "opend" (本地Moomoo OpenD桥接)
       ticker: "SOXL",
       prices: { SOXL: 62.70, SOXS: 47.66, TQQQ: 58.80, SQQQ: 41.67, QQQ: 685.85, SPY: 757.32, SOXX: 152.66 },
       realIntraStats: {},
@@ -1812,6 +1813,9 @@
               <button onclick="setView('macro')" class="px-2.5 py-1 text-xs font-bold rounded-lg ${state.viewMode==='macro'?'bg-slate-900 text-white':'bg-slate-100 text-slate-600'}">📅 三层：2~3月波段</button>
               <button onclick="setView('compass')" class="px-2.5 py-1 text-xs font-bold rounded-lg ${state.viewMode==='compass'?'bg-slate-900 text-white':'bg-slate-100 text-slate-600'}">🧭 四层：1~5年罗盘</button>
               <button onclick="toggleClean()" class="px-2.5 py-1 text-xs font-bold rounded-lg border ${state.cleanShot?'bg-rose-600 text-white border-rose-700':'bg-slate-50 text-slate-700 border-slate-300'}">${state.cleanShot?'📸 退出群聊截图模式':'📸 群聊截图模式'}</button>
+              <button onclick="toggleDataSource()" class="px-2.5 py-1 text-xs font-bold rounded-lg border transition ${state.dataSource==='opend'?'bg-purple-600 text-white border-purple-700':'bg-sky-50 text-sky-700 border-sky-300'}">
+                ${state.dataSource==='opend'?'🔌 数据源: 本地OpenD(8888/11111)':'☁️ 数据源: 云端免费API'}
+              </button>
               <button onclick="logout()" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 text-slate-500">🔒 锁定</button>
             </div>
           </div>
@@ -1871,6 +1875,13 @@
       state.anchorDt = "11/12";
       updateDynamicSections();
     };
+    window.toggleDataSource = () => {
+      state.dataSource = state.dataSource === 'cloud' ? 'opend' : 'cloud';
+      if (state.dataSource === 'opend') {
+        syncQuotes();
+      }
+      updateDynamicSections();
+    };
     window.setView = (v) => { state.viewMode = v; renderFullShell(); };
     window.setTacticalMode = (tm) => { state.tacticalMode = tm; updateDynamicSections(); };
     window.setCompassYears = (yrs) => { state.compassYears = yrs; updateDynamicSections(); };
@@ -1910,6 +1921,41 @@
     async function syncQuotes() {
       if (!state.isAuthed || !state.isLive) return;
       try {
+        if (state.dataSource === 'opend') {
+          // 尝试从本地 Python 桥接服务读取 OpenD 行情
+          let successCount = 0;
+          await Promise.all(TICKER_ORDER.map(async (sym) => {
+            try {
+              const res = await fetch(`http://127.0.0.1:8888/api/quote/${sym}`);
+              if (!res.ok) throw new Error("OpenD bridge offline");
+              const d = await res.json();
+              if (d && d.price > 0) {
+                state.prices[sym] = parseFloat(d.price.toFixed(2));
+                state.realIntraStats[sym] = {
+                  high: parseFloat(d.high.toFixed(2)),
+                  low: parseFloat(d.low.toFixed(2)),
+                  vwap: RAW_DB[sym].fixedVwap
+                };
+                successCount++;
+                if (sym === state.ticker) {
+                  const slider = document.getElementById("priceSlider");
+                  if (slider) slider.value = state.prices[sym];
+                }
+              }
+            } catch (opendErr) {}
+          }));
+          if (successCount > 0) {
+            state.liveStatus = `🔌 本地OpenD实时 (${getRealTimeSlotInfo().bjtStr})`;
+            updateDynamicSections();
+            return;
+          } else {
+            // 若本地 OpenD 没启动，自动弹窗并降级回云端
+            state.dataSource = 'cloud';
+            alert("⚠️ 未检测到本地 OpenD 桥接服务 (端口 8888) 或 Moomoo 未运行，已自动为您切回云端免费数据源！");
+          }
+        }
+
+        // 默认 / 降级：云端免费 API
         await Promise.all(TICKER_ORDER.map(async (sym) => {
           const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&range=1d&includePrePost=true`;
           const proxies = [
@@ -1955,7 +2001,7 @@
             } catch (innerE) {}
           }
         }));
-        state.liveStatus = `云端公网实时 (${getRealTimeSlotInfo().bjtStr})`;
+        state.liveStatus = `☁️ 云端公网实时 (${getRealTimeSlotInfo().bjtStr})`;
         updateDynamicSections();
       } catch (e) {}
     }

@@ -1157,11 +1157,32 @@
       }
       pastPts.push([nowFloatIdx, curP]);
 
+      const invMidTarget = parseFloat((Math.min(vwap * (1 - 0.012 * ampUnit), (vwap + demandHigh) * 0.5)).toFixed(2));
+      const invStopHunt  = parseFloat((majorSupHigh * (1 + 0.015 * ampUnit)).toFixed(2));
+
       const pathA = [[nowFloatIdx, curP]], pathB = [[nowFloatIdx, curP]], pathC = [[nowFloatIdx, curP]];
-      const tmplA = [
-        [3, curP * (1 + 0.003 * ampUnit)],
-        [5, (curP + demandHigh) * 0.5],
-        [7, demandHigh * 0.999],
+
+      // 正股(SOXL/TQQQ/SOXX/QQQ) 与 反向ETF(SOXS/SQQQ) 严格按时间节点 100% 镜像反转：
+      // 当 SOXL 在 23:15(idx=8) 回踩右脚时，SOXS 同步在 23:15 冲高摸顶；
+      // 当 SOXL 在 01:00(idx=10) 向上攻克 VWAP 时，SOXS 同步在 01:00 向下跌破 VWAP；
+      // 当 SOXL 在 04:00(idx=13) 冲击尾盘阻力带时，SOXS 同步在 04:00 回踩下方承接区低吸带！
+      const tmplA = cfg.isInverse ? [
+        [3, parseFloat((curP * (1 - 0.003 * ampUnit)).toFixed(2))],
+        [5, parseFloat(((curP + majorSupLow) * 0.5).toFixed(2))],
+        [7, parseFloat((majorSupLow * 1.001).toFixed(2))],
+        [8, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
+        [9, parseFloat((vwap * 0.999).toFixed(2))],
+        [10, invMidTarget],
+        [11, parseFloat(((invMidTarget + demandHigh) * 0.5).toFixed(2))],
+        [12, demandHigh],
+        [13, parseFloat(((demandLow + demandHigh) * 0.5).toFixed(2))],
+        [14, parseFloat((demandHigh * (1 - 0.003 * ampUnit)).toFixed(2))],
+        [15, demandHigh],
+        [16, parseFloat((demandHigh * (1 + 0.002 * ampUnit)).toFixed(2))]
+      ] : [
+        [3, parseFloat((curP * (1 + 0.003 * ampUnit)).toFixed(2))],
+        [5, parseFloat(((curP + demandHigh) * 0.5).toFixed(2))],
+        [7, parseFloat((demandHigh * 0.999).toFixed(2))],
         [8, parseFloat(((demandLow + demandHigh) * 0.5).toFixed(2))],
         [9, parseFloat((vwap * 1.001).toFixed(2))],
         [10, midTarget],
@@ -1172,8 +1193,22 @@
         [15, majorSupLow],
         [16, parseFloat((majorSupLow * (1 + 0.002 * ampUnit)).toFixed(2))]
       ];
-      const tmplB = [
-        [3, curP * (1 + 0.006 * ampUnit)],
+
+      const tmplB = cfg.isInverse ? [
+        [3, parseFloat((curP * (1 - 0.006 * ampUnit)).toFixed(2))],
+        [5, vwap],
+        [7, demandHigh],
+        [8, demandLow],
+        [9, parseFloat(((demandLow + stopHuntExtreme) * 0.5).toFixed(2))],
+        [10, stopHuntExtreme],
+        [11, parseFloat((stopHuntExtreme * (1 - 0.004 * ampUnit)).toFixed(2))],
+        [12, parseFloat((stopHuntExtreme * (1 - 0.008 * ampUnit)).toFixed(2))],
+        [13, parseFloat((stopHuntExtreme * (1 - 0.010 * ampUnit)).toFixed(2))],
+        [14, stopHuntExtreme],
+        [15, stopHuntExtreme],
+        [16, stopHuntExtreme]
+      ] : [
+        [3, parseFloat((curP * (1 + 0.006 * ampUnit)).toFixed(2))],
         [5, vwap],
         [7, microRes],
         [8, majorSupLow],
@@ -1186,8 +1221,22 @@
         [15, majorSupHigh],
         [16, majorSupHigh]
       ];
-      const tmplC = [
-        [3, curP * (1 - 0.004 * ampUnit)],
+
+      const tmplC = cfg.isInverse ? [
+        [3, parseFloat((curP * (1 + 0.004 * ampUnit)).toFixed(2))],
+        [5, majorSupLow],
+        [7, majorSupHigh],
+        [8, invStopHunt],
+        [9, majorSupHigh],
+        [10, vwap],
+        [11, invMidTarget],
+        [12, invMidTarget],
+        [13, demandHigh],
+        [14, invMidTarget],
+        [15, invMidTarget],
+        [16, invMidTarget]
+      ] : [
+        [3, parseFloat((curP * (1 - 0.004 * ampUnit)).toFixed(2))],
         [5, demandHigh],
         [7, demandLow],
         [8, stopHuntExtreme],
@@ -1207,7 +1256,7 @@
 
       return {
         nowIdx, nowFloatIdx, bjtHM: timeInfo.bjtHM, estHM: timeInfo.estHM,
-        openIdx, closeIdx, isShortFrozen,
+        openIdx, closeIdx, isShortFrozen, sDip, sPeak, invMidTarget,
         vwap, demandLow, demandHigh, microRes, midTarget, majorSupLow, majorSupHigh, stopHuntExtreme,
         pastPts, pathA, pathB, pathC
       };
@@ -1273,7 +1322,11 @@
       `).join("");
 
       const activePath = state.intraScenario === "A" ? intra.pathA : (state.intraScenario === "B" ? intra.pathB : intra.pathC);
-      const bubbleSpecs = [
+      const bubbleSpecs = m.cfg.isInverse ? [
+        { idx: 8,  label: "23:15 冲高摸顶", color: "#FDA4AF", dy: -28 },
+        { idx: 10, label: "01:00 跌破VWAP", color: "#FBBF24", dy: 28 },
+        { idx: 13, label: "04:00 回踩低吸", color: "#34D399", dy: 28 }
+      ] : [
         { idx: 8,  label: "23:15 盘口右脚", color: "#34D399", dy: 28 },
         { idx: 10, label: "01:00 攻克VWAP", color: "#FBBF24", dy: -28 },
         { idx: 13, label: "04:00 尾盘目标", color: "#38BDF8", dy: -28 }
@@ -1308,6 +1361,10 @@
         <rect x="${xOf(intra.openIdx)}" y="${PAD_T}" width="${xOf(intra.closeIdx)-xOf(intra.openIdx)}" height="${plotH}" fill="#1E293B" opacity="0.75"/>
 
         ${grid}
+        ${m.cfg.regClose >= minY && m.cfg.regClose <= maxY ? `
+          <line x1="${PAD_L}" y1="${yOf(m.cfg.regClose)}" x2="${W-PAD_R}" y2="${yOf(m.cfg.regClose)}" stroke="#94A3B8" stroke-dasharray="3 3" stroke-width="1.1" opacity="0.65"/>
+          <text x="${W-PAD_R-6}" y="${yOf(m.cfg.regClose)-5}" text-anchor="end" font-size="9.5" font-weight="bold" fill="#94A3B8" class="font-mono">昨收基准(0.00%): $${m.cfg.regClose.toFixed(2)}</text>
+        ` : ""}
 
         <rect x="${PAD_L}" y="${yOf(intra.majorSupHigh)}" width="${plotW}" height="${Math.max(4, yOf(intra.majorSupLow)-yOf(intra.majorSupHigh))}" fill="#F43F5E" opacity="0.22"/>
         <rect x="${PAD_L}" y="${yOf(intra.demandHigh)}" width="${plotW}" height="${Math.max(4, yOf(intra.demandLow)-yOf(intra.demandHigh))}" fill="#10B981" opacity="0.22"/>
@@ -1324,10 +1381,7 @@
         ${zoneBadgesHtml}
         ${bubbles}
 
-        ${m.cfg.regClose >= minY && m.cfg.regClose <= maxY ? `
-          <line x1="${PAD_L}" y1="${yOf(m.cfg.regClose)}" x2="${W-PAD_R}" y2="${yOf(m.cfg.regClose)}" stroke="#94A3B8" stroke-dasharray="3 3" stroke-width="1.1" opacity="0.75"/>
-          <text x="${W-PAD_R-6}" y="${yOf(m.cfg.regClose)-5}" text-anchor="end" font-size="9.5" font-weight="bold" fill="#94A3B8" class="font-mono">昨收基准(0.00%): $${m.cfg.regClose.toFixed(2)}</text>
-        ` : ""}
+
 
         <line x1="${nowX}" y1="${nowY}" x2="${nowBubbleX}" y2="${nowBubbleY}" stroke="#EF4444" stroke-width="1.4"/>
         <circle cx="${nowX}" cy="${nowY}" r="6" fill="#EF4444" stroke="#FEF2F2" stroke-width="2"/>
@@ -1488,39 +1542,64 @@
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
-                <button onclick="setIntra('A')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='A'?'bg-indigo-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🎯 剧本A: 回踩右脚 ➔ 攻克VWAP (75% 主推)</button>
-                <button onclick="setIntra('B')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='B'?'bg-emerald-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🚀 剧本B: 浅踩直接逼空 (15%)</button>
-                <button onclick="setIntra('C')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='C'?'bg-amber-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">⚠️ 剧本C: 插针扫损 ➔ V反 (10%)</button>
+                <button onclick="setIntra('A')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='A'?'bg-indigo-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🎯 剧本A: ${cfg.isInverse ? '开盘冲高摸顶 ➔ 跌破VWAP回踩承接 (75% 主推)' : '回踩右脚 ➔ 攻克VWAP反攻 (75% 主推)'}</button>
+                <button onclick="setIntra('B')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='B'?'bg-emerald-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">🚀 剧本B: ${cfg.isInverse ? '受阻直接回落寻底 (15%)' : '浅踩直接逼空 (15%)'}</button>
+                <button onclick="setIntra('C')" class="px-3.5 py-1.5 text-xs font-bold rounded-full ${state.intraScenario==='C'?'bg-amber-600 text-white shadow-md':'bg-slate-100 text-slate-600'}">⚠️ 剧本C: ${cfg.isInverse ? '冲高假突破扫损 ➔ 跌回均线 (10%)' : '插针扫损 ➔ V反 (10%)'}</button>
               </div>
             </div>
 
             <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
               <div class="text-xs font-bold text-slate-700 mb-2.5 flex flex-wrap items-center justify-between font-mono">
-                <span>🗺️ 【${state.ticker} 24H 四步作战自动推演流程图】</span>
+                <span>🗺️ 【${state.ticker} 24H 四步作战自动推演流程图】(${cfg.isInverse ? '已启用反向ETF镜像对冲逻辑' : '已启用正股超跌反抽修复逻辑'})</span>
                 <span class="text-indigo-600 font-extrabold">当前激活：剧本${state.intraScenario}</span>
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
-                <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-500 border border-slate-200">
-                  <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 亚盘冲高回踩</span><span class="bg-slate-100 px-2 py-0.5 rounded">08:00-22:30</span></div>
-                  <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">均线: $${intra.vwap.toFixed(2)} <span class="text-xs font-bold text-emerald-600">(高$${lockedHigh.toFixed(2)})</span></div>
-                  <div class="text-[11px] text-slate-600 mt-1.5">亚盘自昨收($${cfg.regClose.toFixed(2)})拉升摸高 $${lockedHigh.toFixed(2)} 后回踩均线蓄势</div>
+              ${cfg.isInverse ? `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
+                  <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-500 border border-slate-200">
+                    <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 亚盘探底反抽</span><span class="bg-slate-100 px-2 py-0.5 rounded">08:00-22:30</span></div>
+                    <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">均线: $${intra.vwap.toFixed(2)} <span class="text-xs font-bold text-rose-600">(低$${intra.sDip.toFixed(2)})</span></div>
+                    <div class="text-[11px] text-slate-600 mt-1.5">亚盘随正股冲高探底 $${intra.sDip.toFixed(2)} 后反抽站上均线 ($${intra.vwap.toFixed(2)})</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
+                    <div class="flex justify-between text-rose-900 font-bold"><span>STEP 2 · 开盘冲高摸顶窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">22:30-23:15</span></div>
+                    <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">短线阻力: $${intra.majorSupLow.toFixed(2)}~$${intra.majorSupHigh.toFixed(2)}</div>
+                    <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">🚨 随正股回踩右脚，${state.ticker} 冲高测试阻力带，短线多单分批锁利</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-amber-50/80 border-l-4 border-l-amber-600 border border-amber-200">
+                    <div class="flex justify-between text-amber-900 font-bold"><span>STEP 3 · 盘中失守VWAP段</span><span class="bg-amber-100 px-2 py-0.5 rounded">23:15-02:30</span></div>
+                    <div class="text-amber-700 font-extrabold text-[15px] mt-1.5">回落中枢: $${intra.invMidTarget.toFixed(2)}</div>
+                    <div class="text-[11px] text-amber-900 mt-1.5 font-semibold">📉 随正股站上VWAP展开反抽，${state.ticker} 跌破均线 ($${intra.vwap.toFixed(2)}) 向下换手</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-emerald-50/80 border-l-4 border-l-emerald-600 border border-emerald-200">
+                    <div class="flex justify-between text-emerald-800 font-bold"><span>STEP 4 · 尾盘回踩低吸窗</span><span class="bg-emerald-100 px-2 py-0.5 rounded">02:30-05:00</span></div>
+                    <div class="text-emerald-700 font-extrabold text-[15px] mt-1.5">回踩低吸: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
+                    <div class="text-[11px] text-emerald-800 mt-1.5 font-semibold">🎯 尾盘回踩下方承接带企稳，为波段看 ${sysTrack.dt1} ($${sysTrack.p1118.toFixed(1)}) 再次低吸点</div>
+                  </div>
                 </div>
-                <div class="p-3.5 rounded-2xl bg-emerald-50/80 border-l-4 border-l-emerald-600 border border-emerald-200">
-                  <div class="flex justify-between text-emerald-800 font-bold"><span>STEP 2 · 开盘回踩右脚窗</span><span class="bg-emerald-100 px-2 py-0.5 rounded">22:30-23:15</span></div>
-                  <div class="text-emerald-700 font-extrabold text-[15px] mt-1.5">低吸承接: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
-                  <div class="text-[11px] text-emerald-800 mt-1.5 font-semibold">🎯 开盘回踩右脚不破，为日内博弈反抽建仓点</div>
+              ` : `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
+                  <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-500 border border-slate-200">
+                    <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 亚盘冲高回踩</span><span class="bg-slate-100 px-2 py-0.5 rounded">08:00-22:30</span></div>
+                    <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">均线: $${intra.vwap.toFixed(2)} <span class="text-xs font-bold text-emerald-600">(高$${lockedHigh.toFixed(2)})</span></div>
+                    <div class="text-[11px] text-slate-600 mt-1.5">亚盘自昨收($${cfg.regClose.toFixed(2)})拉升摸高 $${lockedHigh.toFixed(2)} 后回踩均线蓄势</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-emerald-50/80 border-l-4 border-l-emerald-600 border border-emerald-200">
+                    <div class="flex justify-between text-emerald-800 font-bold"><span>STEP 2 · 开盘回踩右脚窗</span><span class="bg-emerald-100 px-2 py-0.5 rounded">22:30-23:15</span></div>
+                    <div class="text-emerald-700 font-extrabold text-[15px] mt-1.5">低吸承接: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
+                    <div class="text-[11px] text-emerald-800 mt-1.5 font-semibold">🎯 开盘回踩右脚不破，为日内博弈反抽建仓点</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200">
+                    <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 3 · 盘中攻克VWAP段</span><span class="bg-indigo-100 px-2 py-0.5 rounded">23:15-02:30</span></div>
+                    <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">反攻中枢: $${intra.midTarget.toFixed(2)}</div>
+                    <div class="text-[11px] text-indigo-800 mt-1.5 font-semibold">🚀 放量站上VWAP($${intra.vwap.toFixed(2)})，向 $${intra.midTarget.toFixed(2)} 推进</div>
+                  </div>
+                  <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
+                    <div class="flex justify-between text-rose-900 font-bold"><span>STEP 4 · 尾盘反抽目标窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">02:30-05:00</span></div>
+                    <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">冲击目标: $${intra.majorSupLow.toFixed(2)}~$${intra.majorSupHigh.toFixed(2)}</div>
+                    <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">💰 尾盘冲击阻力带分批止盈，波段关注 ${sysTrack.dt1} 节点</div>
+                  </div>
                 </div>
-                <div class="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200">
-                  <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 3 · 盘中攻克VWAP段</span><span class="bg-indigo-100 px-2 py-0.5 rounded">23:15-02:30</span></div>
-                  <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">反攻中枢: $${intra.midTarget.toFixed(2)}</div>
-                  <div class="text-[11px] text-indigo-800 mt-1.5 font-semibold">🚀 放量站上VWAP($${intra.vwap.toFixed(2)})，向 $${intra.midTarget.toFixed(2)} 推进</div>
-                </div>
-                <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
-                  <div class="flex justify-between text-rose-900 font-bold"><span>STEP 4 · 尾盘反抽目标窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">02:30-05:00</span></div>
-                  <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">冲击目标: $${intra.majorSupLow.toFixed(2)}~$${intra.majorSupHigh.toFixed(2)}</div>
-                  <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">💰 尾盘冲击阻力带分批止盈，波段关注 ${sysTrack.dt1} 节点</div>
-                </div>
-              </div>
+              `}
             </div>
             <div class="w-full overflow-x-auto">${buildIntraSvg(intra, m)}</div>
           `;

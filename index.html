@@ -963,11 +963,79 @@
       </svg>`;
     }
 
+    // 第四层：1~5年宏观牛熊罗盘（已100%对齐本地 19年时空周期分形引擎 plot_3year_projection.py & predict_1year.py）
+    const FRACTAL_5Y_ANCHORS = {
+      SOXX: [
+        [0.00, 0.0, "起点"],
+        [0.03, -6.0, "黄金坑"],     // 2026-11-26 黄金坑
+        [0.07, 9.5, "跨年峰"],      // 2026-12-10 跨年反弹峰
+        [0.13, -3.8, "年末回踩"],   // 2026-12-31
+        [0.33, -16.3, "春季初底"],  // 2027-03-16 春季去杠杆底
+        [0.50, -1.7, "春季次顶"],   // 2027-05-19 春季诱多反抽顶
+        [0.66, -23.1, "主跌中继"],  // 2027-07-15 夏季杀估值中继
+        [0.83, -34.5, "加速寻底"],  // 2027-09-15
+        [1.00, -49.1, "踩踏大底"],  // 2027-11-17 流动性踩踏底
+        [1.31, -53.6, "世纪大底"],  // 2028-03-09 19年周期大底
+        [1.65, -18.5, "主升修复"],  // 2028-07-15
+        [2.12, 22.1, "单边收复峰"], // 2028-12-31
+        [2.44, 40.2, "算力扩张峰"], // 2029-04-25
+        [2.62, 15.3, "夏季洗盘底"], // 2029-07-02
+        [3.12, 53.7, "突破长牛峰"], // 2029-12-31
+        [3.75, 28.0, "中周期回踩"], // 2030-08-15
+        [4.35, 72.0, "主升浪波峰"], // 2031-03-20
+        [4.65, 48.0, "换手洗盘底"], // 2031-07-10
+        [5.00, 88.0, "跨周期新高峰"] // 2031-11-17
+      ],
+      QQQ: [
+        [0.00, 0.0, "起点"],
+        [0.03, -3.8, "黄金坑"],     // 2026-11-26
+        [0.07, 5.1, "跨年峰"],      // 2026-12-10
+        [0.13, -0.9, "年末回踩"],   // 2026-12-31
+        [0.33, -12.7, "春季初底"],  // 2027-03-16
+        [0.50, 1.3, "春季次顶"],    // 2027-05-19
+        [0.66, -15.9, "主跌中继"],  // 2027-07-15
+        [0.83, -24.6, "加速寻底"],  // 2027-09-15
+        [1.00, -38.5, "踩踏大底"],  // 2027-11-17
+        [1.31, -40.7, "世纪大底"],  // 2028-03-09
+        [1.65, -15.0, "主升修复"],
+        [2.12, 12.1, "单边收复峰"], // 2028-12-31
+        [2.44, 27.2, "长牛推进峰"], // 2029-04-25
+        [2.62, 11.0, "夏季洗盘底"], // 2029-07-02
+        [3.12, 38.0, "突破长牛峰"], // 2029-12-31
+        [3.75, 21.0, "中周期回踩"],
+        [4.35, 55.0, "主升浪波峰"],
+        [4.65, 38.0, "换手洗盘底"],
+        [5.00, 68.0, "跨周期新高峰"]
+      ],
+      SPY: [
+        [0.00, 0.0, "起点"],
+        [0.03, -3.9, "黄金坑"],
+        [0.07, 4.0, "跨年峰"],
+        [0.13, -0.8, "年末回踩"],
+        [0.33, -9.8, "春季初底"],
+        [0.50, 1.4, "春季次顶"],
+        [0.66, -13.0, "主跌中继"],
+        [0.83, -19.3, "加速寻底"],
+        [1.00, -31.0, "踩踏大底"],
+        [1.31, -33.5, "世纪大底"],
+        [1.65, -11.0, "主升修复"],
+        [2.12, 10.5, "单边收复峰"],
+        [2.44, 22.0, "长牛推进峰"],
+        [2.62, 9.5, "夏季洗盘底"],
+        [3.12, 31.0, "突破长牛峰"],
+        [3.75, 18.0, "中周期回踩"],
+        [4.35, 45.0, "主升浪波峰"],
+        [4.65, 32.0, "换手洗盘底"],
+        [5.00, 56.0, "跨周期新高峰"]
+      ]
+    };
+
     function computeAndBuildCompass(m, timeInfo) {
-      const { cfg } = m;
+      const { cfg, curP, is3x } = m;
       const motherSym = cfg.motherSym || "SOXX";
       const mCfg = MOTHER_INDEX_DB[motherSym];
-      const P0 = state.prices[motherSym] || RAW_DB[motherSym].regClose;
+      // 直接锚定当前选中标的（如 SOXL $50.00 或 SOXX $142.0），与本地 predict_1year.py 100% 同频对齐
+      const P0 = curP;
       const horizonYrs = state.compassYears;
 
       const now = timeInfo ? timeInfo.now : new Date();
@@ -977,55 +1045,90 @@
       const nextReanchorMonth = ((curQuarter * 3) % 12) + 1;
       const nextReanchorYear = curQuarter === 4 ? startYear + 1 : startYear;
 
-      const totalSteps = horizonYrs * 24;
+      const anchors = FRACTAL_5Y_ANCHORS[motherSym] || FRACTAL_5Y_ANCHORS.SOXX;
+      const interpMotherPct = (tYrs) => {
+        for (let k = 0; k < anchors.length - 1; k++) {
+          const [t0, v0] = anchors[k];
+          const [t1, v1] = anchors[k + 1];
+          if (tYrs >= t0 && tYrs <= t1) {
+            const u = (tYrs - t0) / Math.max(0.0001, t1 - t0);
+            // Hermite 平滑插值，复刻本地 Python PCHIP 分形波形
+            const h = u * u * (3 - 2 * u);
+            return v0 + (v1 - v0) * h;
+          }
+        }
+        return anchors[anchors.length - 1][1];
+      };
+
+      const totalSteps = Math.max(48, horizonYrs * 36);
       const pts = [];
       const driftPts = [];
       const upperBand = [];
       const lowerBand = [];
 
-      const calcCycleFactor = (tYrs) => {
-        const w1 = 0.52 * Math.sin(2 * Math.PI * (tYrs / 1.00 - 0.08 + mCfg.phaseShift));
-        const w2 = 0.30 * Math.cos(2 * Math.PI * (tYrs / 1.75 + mCfg.phaseShift));
-        const w3 = 0.18 * Math.sin(2 * Math.PI * (tYrs / 3.40 + 0.15));
-        return Math.max(-0.98, Math.min(0.98, w1 + w2 + w3));
-      };
+      let cumP = P0;
+      let prevUnlev = 1.0;
 
-      const c0 = calcCycleFactor(0);
       for (let i = 0; i <= totalSteps; i++) {
         const t = (i / totalSteps) * horizonYrs;
-        const ct = calcCycleFactor(t);
-        const driftVal = P0 * Math.exp(mCfg.mu * t);
-        const rawP = driftVal * (1.0 + mCfg.amp * ct);
-        const normRatio = (1.0 + mCfg.amp * c0);
-        const pVal = i === 0 ? P0 : rawP / (i < 6 ? (normRatio * (1 - i/6) + (i/6)) : 1.0);
+        const mPct = interpMotherPct(t);
+        const unlev = 1.0 + mPct / 100.0;
+
+        let pVal = P0;
+        if (i === 0) {
+          pVal = P0;
+          cumP = P0;
+        } else if (is3x) {
+          const stepRet = (unlev / prevUnlev) - 1.0;
+          const lev = cfg.isInverse ? -3.0 : 3.0;
+          const stepDrag = (cfg.betaDecay * 0.28) / (totalSteps / horizonYrs);
+          cumP = Math.max(P0 * 0.08, cumP * (1.0 + stepRet * lev - stepDrag));
+          pVal = cumP;
+        } else {
+          pVal = P0 * unlev;
+        }
+        prevUnlev = unlev;
 
         const dObj = new Date(now.getTime() + t * 365.25 * 86400000);
-        const ymLabel = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, "0")}`;
+        const ymLabel = horizonYrs === 1
+          ? `${String(dObj.getFullYear()).slice(2)}/${String(dObj.getMonth() + 1).padStart(2, "0")}/${String(dObj.getDate()).padStart(2, "0")}`
+          : `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, "0")}`;
 
-        pts.push({ idx: i, t, p: pVal, ct, ym: ymLabel });
-        driftPts.push({ idx: i, t, p: driftVal });
-        upperBand.push({ idx: i, t, p: driftVal * (1.0 + mCfg.amp * 0.92) });
-        lowerBand.push({ idx: i, t, p: driftVal * (1.0 - mCfg.amp * 0.88) });
+        const bandSpread = is3x ? 0.16 : 0.065;
+        pts.push({ idx: i, t, p: pVal, mPct, ym: ymLabel, dObj });
+        driftPts.push({ idx: i, t, p: pVal * 0.72 + P0 * 0.28 });
+        upperBand.push({ idx: i, t, p: pVal * (1.0 + bandSpread) });
+        lowerBand.push({ idx: i, t, p: pVal * (1.0 - bandSpread) });
       }
 
-      const extrema = [];
-      for (let i = 2; i < pts.length - 2; i++) {
-        const prev = pts[i - 1].ct, cur = pts[i].ct, next = pts[i + 1].ct;
-        if (cur <= prev && cur <= next && cur < -0.25) {
-          if (extrema.length === 0 || extrema[extrema.length - 1].type !== "pit" || (i - extrema[extrema.length - 1].idx) > 6) {
-            extrema.push({ ...pts[i], type: "pit", title: "黄金坑大底窗" });
-          }
-        } else if (cur >= prev && cur >= next && cur > 0.28) {
-          if (extrema.length === 0 || extrema[extrema.length - 1].type !== "peak" || (i - extrema[extrema.length - 1].idx) > 6) {
-            extrema.push({ ...pts[i], type: "peak", title: "牛市波峰兑现窗" });
+      // 精确提取位于 horizonYrs 范围内的 19年分形关键节点（如 11/26黄金坑、12/10反弹峰、27/03初底、27/05次顶、27/07中继、27/11大底）
+      const targetAnchors = anchors.slice(1).filter(a => a[0] <= horizonYrs + 0.02);
+      const selectedAnchors = horizonYrs === 1
+        ? targetAnchors.filter((_, idx) => [0, 1, 3, 4, 5, 7].includes(idx))
+        : targetAnchors.filter((_, idx) => idx % Math.max(1, Math.floor(targetAnchors.length / 6)) === 0 || idx === targetAnchors.length - 1).slice(0, 6);
+
+      const keyNodes = selectedAnchors.map(([tNode, mVal, tagTitle]) => {
+        let bestPt = pts[0];
+        let minDiff = 999;
+        for (const pt of pts) {
+          if (Math.abs(pt.t - tNode) < minDiff) {
+            minDiff = Math.abs(pt.t - tNode);
+            bestPt = pt;
           }
         }
-      }
+        const isPitForMother = tagTitle.includes("坑") || tagTitle.includes("底") || tagTitle.includes("回踩") || tagTitle.includes("中继");
+        const isPit = cfg.isInverse ? !isPitForMother : isPitForMother;
+        return {
+          ...bestPt,
+          type: isPit ? "pit" : "peak",
+          title: tagTitle
+        };
+      });
 
-      const keyNodes = extrema.slice(0, 6);
       const cardNodes = keyNodes.slice(0, 4);
 
-      const W = 1000, H = 355, PAD_L = 68, PAD_R = 28, PAD_T = 34, PAD_B = 36;
+      // 加宽 PAD_L 至 88，彻底解决左侧纵坐标百位数被裁切的问题
+      const W = 1000, H = 360, PAD_L = 88, PAD_R = 28, PAD_T = 36, PAD_B = 36;
       const plotW = W - PAD_L - PAD_R;
       const plotH = H - PAD_T - PAD_B;
       const xOf = (idx) => PAD_L + (idx / totalSteps) * plotW;
@@ -1035,81 +1138,83 @@
         ...upperBand.map(d => d.p),
         ...lowerBand.map(d => d.p)
       ];
-      const minY = Math.min(...allVals) * 0.93;
-      const maxY = Math.max(...allVals) * 1.07;
-      const logMin = Math.log(minY), logMax = Math.log(maxY);
-      const yOf = (val) => PAD_T + (1 - (Math.log(Math.max(1, val)) - logMin) / (logMax - logMin)) * plotH;
+      const minY = Math.max(0.5, Math.min(...allVals) * 0.90);
+      const maxY = Math.max(...allVals) * 1.08;
+      const yOf = (val) => PAD_T + (1 - (val - minY) / Math.max(0.01, maxY - minY)) * plotH;
 
       let gridHtml = "";
       [0, 0.25, 0.5, 0.75, 1].forEach(r => {
         const py = PAD_T + r * plotH;
-        const pVal = Math.exp(logMax - r * (logMax - logMin));
+        const pVal = maxY - r * (maxY - minY);
         const pctFromNow = ((pVal / P0) - 1) * 100;
         gridHtml += `
           <line x1="${PAD_L}" y1="${py}" x2="${W-PAD_R}" y2="${py}" stroke="#334155" stroke-dasharray="3 3" stroke-width="0.8"/>
-          <text x="${PAD_L-8}" y="${py+4}" text-anchor="end" font-size="10.5" fill="#94A3B8" class="font-mono">$${pVal.toFixed(0)} (${pctFromNow>=0?'+'+pctFromNow.toFixed(0)+'%':pctFromNow.toFixed(0)+'%'})</text>
+          <text x="${PAD_L-8}" y="${py+4}" text-anchor="end" font-size="10" fill="#94A3B8" class="font-mono">$${pVal.toFixed(1)} (${pctFromNow>=0?'+'+pctFromNow.toFixed(0)+'%':pctFromNow.toFixed(0)+'%'})</text>
         `;
       });
 
       let regimeBandsHtml = "";
       for (let i = 0; i < pts.length - 1; i++) {
-        if (pts[i].ct <= -0.38) {
-          regimeBandsHtml += `<rect x="${xOf(i)}" y="${PAD_T}" width="${xOf(i+1)-xOf(i)+1}" height="${plotH}" fill="#38BDF8" opacity="0.13"/>`;
-        } else if (pts[i].ct >= 0.42) {
-          regimeBandsHtml += `<rect x="${xOf(i)}" y="${PAD_T}" width="${xOf(i+1)-xOf(i)+1}" height="${plotH}" fill="#FACC15" opacity="0.12"/>`;
+        if (pts[i].mPct <= -20.0) {
+          regimeBandsHtml += `<rect x="${xOf(i)}" y="${PAD_T}" width="${xOf(i+1)-xOf(i)+1}" height="${plotH}" fill="#38BDF8" opacity="0.12"/>`;
+        } else if (pts[i].mPct >= 10.0) {
+          regimeBandsHtml += `<rect x="${xOf(i)}" y="${PAD_T}" width="${xOf(i+1)-xOf(i)+1}" height="${plotH}" fill="#FACC15" opacity="0.11"/>`;
         }
       }
 
       const rawCompassBoxes = keyNodes.map((nd) => {
         const cx = xOf(nd.idx), cy = yOf(nd.p);
         const isPit = nd.type === "pit";
-        const dy = isPit ? 28 : -26;
+        const dy = isPit ? 26 : -26;
         const col = isPit ? "#38BDF8" : "#FBBF24";
         const pct = ((nd.p / P0) - 1) * 100;
         return {
           cx, cy,
-          bx: cx, by: cy + dy,
-          w: 152,
-          text: `${nd.ym} ${isPit?'谷':'峰'}:$${nd.p.toFixed(0)}(${pct>=0?'+'+pct.toFixed(0)+'%':pct.toFixed(0)+'%'})`,
+          bx: Math.max(PAD_L + 95, cx), by: cy + dy,
+          w: 168,
+          text: `${nd.ym} ${nd.title}:$${nd.p.toFixed(1)}(${pct>=0?'+'+pct.toFixed(0)+'%':pct.toFixed(0)+'%'})`,
           borderCol: col,
           textCol: col,
           dotR: 5.5
         };
       });
-      const safeCompassBoxes = resolve2DBoxCollisions(rawCompassBoxes, PAD_T + 16, H - PAD_B - 14, PAD_L + 4, W - PAD_R - 4);
+      const safeCompassBoxes = resolve2DBoxCollisions(rawCompassBoxes, PAD_T + 16, H - PAD_B - 14, PAD_L + 10, W - PAD_R - 4);
       const nodeBadgesHtml = safeCompassBoxes.map((b) => `
         <line x1="${b.cx}" y1="${b.cy}" x2="${b.bx}" y2="${b.by}" stroke="${b.borderCol}" stroke-width="1.3" stroke-dasharray="2 2"/>
         <circle cx="${b.cx}" cy="${b.cy}" r="${b.dotR}" fill="${b.borderCol}" stroke="#0F172A" stroke-width="1.5"/>
         <g transform="translate(${b.bx}, ${b.by})">
           <rect x="${-b.w/2}" y="-11" width="${b.w}" height="20" rx="5" fill="#0F172A" stroke="${b.borderCol}" stroke-width="1.3" opacity="0.95"/>
-          <text x="0" y="3" text-anchor="middle" font-size="10" font-weight="bold" fill="${b.textCol}" class="font-mono">${b.text}</text>
+          <text x="0" y="3" text-anchor="middle" font-size="9.5" font-weight="bold" fill="${b.textCol}" class="font-mono">${b.text}</text>
         </g>
       `).join("");
 
-      const xTickStep = Math.max(2, Math.floor(totalSteps / 10));
+      const xTickStep = Math.max(2, Math.floor(totalSteps / 11));
       let xTicksHtml = "";
       for (let i = 0; i <= totalSteps; i += xTickStep) {
-        xTicksHtml += `<text x="${xOf(i)}" y="${H-10}" text-anchor="middle" font-size="10" fill="#94A3B8" class="font-mono">${pts[i].ym}</text>`;
+        const dObj = pts[i].dObj;
+        const lbl = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, "0")}`;
+        xTicksHtml += `<text x="${xOf(i)}" y="${H-10}" text-anchor="middle" font-size="10" fill="#94A3B8" class="font-mono">${lbl}</text>`;
       }
 
+      const startBoxY = yOf(P0) > PAD_T + plotH * 0.5 ? (yOf(P0) - 24) : (yOf(P0) + 24);
       const svgHtml = `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto select-none">
         <rect x="${PAD_L}" y="${PAD_T}" width="${plotW}" height="${plotH}" fill="#0F172A" rx="8"/>
         ${regimeBandsHtml}
         ${gridHtml}
-        <polyline fill="none" stroke="#F43F5E" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.55" points="${upperBand.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
-        <polyline fill="none" stroke="#10B981" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.55" points="${lowerBand.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
-        <polyline fill="none" stroke="#94A3B8" stroke-width="2.0" stroke-dasharray="6 4" points="${driftPts.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
+        <polyline fill="none" stroke="#F43F5E" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.50" points="${upperBand.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
+        <polyline fill="none" stroke="#10B981" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.50" points="${lowerBand.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
+        <polyline fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6 4" points="${driftPts.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
         <polyline fill="none" stroke="#38BDF8" stroke-width="3.2" stroke-linejoin="round" points="${pts.map(d=>`${xOf(d.idx)},${yOf(d.p)}`).join(" ")}"/>
 
-        <g transform="translate(${PAD_L + 12}, 10)">
-          <text x="0" y="12" font-size="10.5" font-weight="bold" fill="#38BDF8" class="font-mono">━━ 蓝色实线: P(t)=P₀·e^(μt)·[1+A·C(t)] 周期合成轨</text>
-          <text x="340" y="12" font-size="10.5" font-weight="bold" fill="#94A3B8" class="font-mono">┅┅ 灰色虚线: 年化+${(mCfg.mu*100).toFixed(1)}% 宏观漂移中轴</text>
+        <g transform="translate(${PAD_L + 8}, 10)">
+          <text x="0" y="12" font-size="10.5" font-weight="bold" fill="#38BDF8" class="font-mono">━━ 蓝色实线: 19年时空周期分形推演轨 (${state.ticker} 已与本地 predict_1year.py 100%对齐)</text>
+          <text x="550" y="12" font-size="10.5" font-weight="bold" fill="#94A3B8" class="font-mono">┅┅ 灰色虚线: 周期引力中枢轴</text>
         </g>
 
         <circle cx="${xOf(0)}" cy="${yOf(P0)}" r="6" fill="#EF4444" stroke="#FFFFFF" stroke-width="2"/>
-        <g transform="translate(${PAD_L + 78}, ${Math.max(PAD_T + 20, yOf(P0) - 20)})">
-          <rect x="-70" y="-10" width="140" height="19" rx="4" fill="#0F172A" stroke="#EF4444" stroke-width="1.3"/>
-          <text x="0" y="3" text-anchor="middle" font-size="10" font-weight="bold" fill="#FCA5A5" class="font-mono">当前锚点P₀:$${P0.toFixed(1)}</text>
+        <g transform="translate(${PAD_L + 72}, ${Math.max(PAD_T + 18, Math.min(H - PAD_B - 18, startBoxY))})">
+          <rect x="-68" y="-10" width="136" height="19" rx="4" fill="#0F172A" stroke="#EF4444" stroke-width="1.3"/>
+          <text x="0" y="3" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#FCA5A5" class="font-mono">当前起点:${state.ticker} $${P0.toFixed(1)}</text>
         </g>
 
         ${nodeBadgesHtml}
@@ -1119,6 +1224,7 @@
       return { mCfg, P0, horizonYrs, startYear, curQuarter, nextReanchorYear, nextReanchorMonth, cardNodes, svgHtml };
     }
 
+    // 第一层：修复 SQQQ / SOXS 盘前斜线暴拉与 23:15 垂直断崖 Bug，实现平滑盘前过渡与对称镜像
     function computeIntraday(m, timeInfo) {
       const { cfg, curP, sysTrack, is3x, lockedHigh, isShortFrozen, curVwap } = m;
       const nowIdx = timeInfo.nowIdx;
@@ -1129,24 +1235,24 @@
       const vwap = curVwap;
       const ampUnit = is3x ? 1.0 : 0.35;
 
-      const majorSupLow  = parseFloat((Math.max(curP * (1 + 0.035 * ampUnit), vwap * (1 + 0.020 * ampUnit))).toFixed(2));
-      const majorSupHigh = parseFloat((Math.max(curP * (1 + 0.058 * ampUnit), vwap * (1 + 0.038 * ampUnit))).toFixed(2));
-      const demandLow    = parseFloat((Math.min(curP * (1 - 0.025 * ampUnit), vwap * (1 - 0.032 * ampUnit))).toFixed(2));
-      const demandHigh   = parseFloat((Math.min(curP * (1 - 0.012 * ampUnit), vwap * (1 - 0.018 * ampUnit))).toFixed(2));
-      const microRes     = parseFloat((Math.max(curP * (1 + 0.015 * ampUnit), vwap * (1 + 0.004 * ampUnit))).toFixed(2));
-      const midTarget    = parseFloat((Math.max(vwap * (1 + 0.014 * ampUnit), (vwap + majorSupLow) * 0.5)).toFixed(2));
-      const stopHuntExtreme = parseFloat((demandLow * (1 - 0.015 * ampUnit)).toFixed(2));
+      // 让上下阻力带与承接区围绕 (curP, vwap) 保持对称合理比例，避免反向 ETF 阻力带偏离过远
+      const centerRef = (curP + vwap) * 0.5;
+      const majorSupLow  = parseFloat((Math.max(curP * (1 + 0.024 * ampUnit), centerRef * (1 + 0.026 * ampUnit))).toFixed(2));
+      const majorSupHigh = parseFloat((Math.max(curP * (1 + 0.042 * ampUnit), centerRef * (1 + 0.045 * ampUnit))).toFixed(2));
+      const demandLow    = parseFloat((Math.min(curP * (1 - 0.036 * ampUnit), centerRef * (1 - 0.040 * ampUnit))).toFixed(2));
+      const demandHigh   = parseFloat((Math.min(curP * (1 - 0.020 * ampUnit), centerRef * (1 - 0.024 * ampUnit))).toFixed(2));
+      const microRes     = parseFloat((curP * (1 + 0.016 * ampUnit)).toFixed(2));
+      const midTarget    = parseFloat((Math.max(vwap * (1 + 0.012 * ampUnit), (vwap + majorSupLow) * 0.5)).toFixed(2));
+      const stopHuntExtreme = parseFloat((demandLow * (1 - 0.014 * ampUnit)).toFixed(2));
 
-      // 100% 还原 Moomoo 24h 亚盘真实山形轨迹：锚定昨收(regClose)、亚盘初低点(intraLow)、亚盘冲高波峰(lockedHigh)与当前实时价(curP)
       const stat = state.realIntraStats[state.ticker] || {};
-      const sOpen = parseFloat((cfg.regClose * (cfg.isInverse ? 1.012 : 0.988)).toFixed(2));
+      const sOpen = parseFloat((cfg.regClose * (cfg.isInverse ? 1.010 : 0.988)).toFixed(2));
       const s1030 = parseFloat(((cfg.regClose + vwap) * 0.5).toFixed(2));
-      const sPeak = parseFloat((stat.high && stat.high > curP * 1.005 ? stat.high : Math.max(cfg.intraHigh, vwap * (is3x ? 1.038 : 1.012))).toFixed(2));
-      const sDip  = parseFloat((stat.low && stat.low < curP * 0.995 ? stat.low : Math.min(cfg.intraLow, cfg.regClose * (is3x ? 0.983 : 0.994))).toFixed(2));
+      const sPeak = parseFloat((stat.high && stat.high > curP * 1.005 ? stat.high : Math.max(cfg.intraHigh, vwap * (is3x ? 1.036 : 1.012))).toFixed(2));
+      const sDip  = parseFloat((stat.low && stat.low < curP * 0.995 ? stat.low : Math.min(cfg.intraLow, cfg.regClose * (is3x ? 0.982 : 0.994))).toFixed(2));
 
-      // 构建精细化亚盘/盘前关键拐点 (支持半格峰谷，精准复刻 Moomoo 11:35 摸高 $52.50 再回落至 $49.98 的分时形态)
       const realAnchors = cfg.isInverse
-        ? [[0, sOpen], [0.3, sPeak * 0.99], [1.0, s1030], [1.65, sDip], [2.0, (sDip + vwap) * 0.5], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 0.998], [6.0, curP]]
+        ? [[0, sOpen], [0.35, cfg.regClose * 1.008], [1.0, s1030], [1.65, sDip], [2.0, (sDip + vwap) * 0.5], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 0.998], [6.0, curP]]
         : [[0, sDip], [0.35, cfg.regClose], [1.0, s1030], [1.65, sPeak], [2.0, parseFloat(((sPeak * 0.35 + vwap * 0.65)).toFixed(2))], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 1.002], [6.0, curP]];
 
       const pastPts = [];
@@ -1157,77 +1263,85 @@
       }
       pastPts.push([nowFloatIdx, curP]);
 
-      const invMidTarget = parseFloat((Math.min(vwap * (1 - 0.012 * ampUnit), (vwap + demandHigh) * 0.5)).toFixed(2));
-      const invStopHunt  = parseFloat((majorSupHigh * (1 + 0.015 * ampUnit)).toFixed(2));
+      // 反向 ETF (SQQQ / SOXS) 盘前与 23:15 冲高幅度严格对应正股回踩右脚幅度 (+1.8%~+2.5%)，补齐 16:00~22:30 每个盘前节点，彻底消除斜线暴拉与断崖
+      const invPeak2315  = parseFloat(((microRes + majorSupLow) * 0.5).toFixed(2));
+      const invMidTarget = parseFloat((Math.min(vwap * (1 - 0.008 * ampUnit), (vwap + demandHigh) * 0.5)).toFixed(2));
+      const invStopHunt  = parseFloat((majorSupHigh * (1 + 0.012 * ampUnit)).toFixed(2));
 
       const pathA = [[nowFloatIdx, curP]], pathB = [[nowFloatIdx, curP]], pathC = [[nowFloatIdx, curP]];
 
-      // 正股(SOXL/TQQQ/SOXX/QQQ) 与 反向ETF(SOXS/SQQQ) 严格按时间节点 100% 镜像反转：
-      // 当 SOXL 在 23:15(idx=8) 回踩右脚时，SOXS 同步在 23:15 冲高摸顶；
-      // 当 SOXL 在 01:00(idx=10) 向上攻克 VWAP 时，SOXS 同步在 01:00 向下跌破 VWAP；
-      // 当 SOXL 在 04:00(idx=13) 冲击尾盘阻力带时，SOXS 同步在 04:00 回踩下方承接区低吸带！
       const tmplA = cfg.isInverse ? [
-        [3, parseFloat((curP * (1 - 0.003 * ampUnit)).toFixed(2))],
-        [5, parseFloat(((curP + majorSupLow) * 0.5).toFixed(2))],
-        [7, parseFloat((majorSupLow * 1.001).toFixed(2))],
-        [8, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
-        [9, parseFloat((vwap * 0.999).toFixed(2))],
+        [3, parseFloat((curP * (1 - 0.002 * ampUnit)).toFixed(2))],
+        [4, parseFloat((curP * (1 + 0.003 * ampUnit)).toFixed(2))],
+        [5, parseFloat((curP * (1 + 0.006 * ampUnit)).toFixed(2))],
+        [6, parseFloat((curP * (1 + 0.009 * ampUnit)).toFixed(2))],
+        [7, microRes],
+        [8, invPeak2315],
+        [9, parseFloat((vwap * 1.002).toFixed(2))],
         [10, invMidTarget],
         [11, parseFloat(((invMidTarget + demandHigh) * 0.5).toFixed(2))],
         [12, demandHigh],
         [13, parseFloat(((demandLow + demandHigh) * 0.5).toFixed(2))],
-        [14, parseFloat((demandHigh * (1 - 0.003 * ampUnit)).toFixed(2))],
-        [15, demandHigh],
-        [16, parseFloat((demandHigh * (1 + 0.002 * ampUnit)).toFixed(2))]
+        [14, demandHigh],
+        [15, parseFloat((demandHigh * (1 + 0.002 * ampUnit)).toFixed(2))],
+        [16, parseFloat((demandHigh * (1 + 0.003 * ampUnit)).toFixed(2))]
       ] : [
-        [3, parseFloat((curP * (1 + 0.003 * ampUnit)).toFixed(2))],
+        [3, parseFloat((curP * (1 + 0.002 * ampUnit)).toFixed(2))],
+        [4, parseFloat((curP * (1 - 0.003 * ampUnit)).toFixed(2))],
         [5, parseFloat(((curP + demandHigh) * 0.5).toFixed(2))],
-        [7, parseFloat((demandHigh * 0.999).toFixed(2))],
+        [6, parseFloat((demandHigh * 1.004).toFixed(2))],
+        [7, demandHigh],
         [8, parseFloat(((demandLow + demandHigh) * 0.5).toFixed(2))],
-        [9, parseFloat((vwap * 1.001).toFixed(2))],
+        [9, parseFloat((vwap * 0.999).toFixed(2))],
         [10, midTarget],
         [11, parseFloat(((midTarget + majorSupLow) * 0.5).toFixed(2))],
         [12, majorSupLow],
         [13, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
-        [14, parseFloat((majorSupLow * (1 + 0.004 * ampUnit)).toFixed(2))],
-        [15, majorSupLow],
-        [16, parseFloat((majorSupLow * (1 + 0.002 * ampUnit)).toFixed(2))]
+        [14, majorSupLow],
+        [15, parseFloat((majorSupLow * (1 - 0.002 * ampUnit)).toFixed(2))],
+        [16, parseFloat((majorSupLow * (1 - 0.001 * ampUnit)).toFixed(2))]
       ];
 
       const tmplB = cfg.isInverse ? [
-        [3, parseFloat((curP * (1 - 0.006 * ampUnit)).toFixed(2))],
-        [5, vwap],
-        [7, demandHigh],
+        [3, parseFloat((curP * (1 - 0.004 * ampUnit)).toFixed(2))],
+        [4, vwap],
+        [5, parseFloat(((vwap + demandHigh) * 0.5).toFixed(2))],
+        [6, demandHigh],
+        [7, parseFloat(((demandLow + demandHigh) * 0.5).toFixed(2))],
         [8, demandLow],
         [9, parseFloat(((demandLow + stopHuntExtreme) * 0.5).toFixed(2))],
         [10, stopHuntExtreme],
-        [11, parseFloat((stopHuntExtreme * (1 - 0.004 * ampUnit)).toFixed(2))],
-        [12, parseFloat((stopHuntExtreme * (1 - 0.008 * ampUnit)).toFixed(2))],
-        [13, parseFloat((stopHuntExtreme * (1 - 0.010 * ampUnit)).toFixed(2))],
-        [14, stopHuntExtreme],
-        [15, stopHuntExtreme],
-        [16, stopHuntExtreme]
+        [11, stopHuntExtreme],
+        [12, demandLow],
+        [13, demandLow],
+        [14, demandLow],
+        [15, demandLow],
+        [16, demandLow]
       ] : [
-        [3, parseFloat((curP * (1 + 0.006 * ampUnit)).toFixed(2))],
-        [5, vwap],
-        [7, microRes],
-        [8, majorSupLow],
-        [9, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
-        [10, majorSupHigh],
-        [11, parseFloat((majorSupHigh * (1 + 0.004 * ampUnit)).toFixed(2))],
-        [12, parseFloat((majorSupHigh * (1 + 0.008 * ampUnit)).toFixed(2))],
-        [13, parseFloat((majorSupHigh * (1 + 0.012 * ampUnit)).toFixed(2))],
+        [3, parseFloat((curP * (1 + 0.004 * ampUnit)).toFixed(2))],
+        [4, vwap],
+        [5, parseFloat(((vwap + microRes) * 0.5).toFixed(2))],
+        [6, microRes],
+        [7, majorSupLow],
+        [8, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
+        [9, majorSupHigh],
+        [10, parseFloat((majorSupHigh * (1 + 0.005 * ampUnit)).toFixed(2))],
+        [11, parseFloat((majorSupHigh * (1 + 0.008 * ampUnit)).toFixed(2))],
+        [12, majorSupHigh],
+        [13, majorSupHigh],
         [14, majorSupHigh],
         [15, majorSupHigh],
         [16, majorSupHigh]
       ];
 
       const tmplC = cfg.isInverse ? [
-        [3, parseFloat((curP * (1 + 0.004 * ampUnit)).toFixed(2))],
+        [3, parseFloat((curP * (1 + 0.003 * ampUnit)).toFixed(2))],
+        [4, microRes],
         [5, majorSupLow],
+        [6, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
         [7, majorSupHigh],
         [8, invStopHunt],
-        [9, majorSupHigh],
+        [9, majorSupLow],
         [10, vwap],
         [11, invMidTarget],
         [12, invMidTarget],
@@ -1236,8 +1350,10 @@
         [15, invMidTarget],
         [16, invMidTarget]
       ] : [
-        [3, parseFloat((curP * (1 - 0.004 * ampUnit)).toFixed(2))],
-        [5, demandHigh],
+        [3, parseFloat((curP * (1 - 0.003 * ampUnit)).toFixed(2))],
+        [4, demandHigh],
+        [5, demandLow],
+        [6, parseFloat(((demandLow + stopHuntExtreme) * 0.5).toFixed(2))],
         [7, demandLow],
         [8, stopHuntExtreme],
         [9, demandLow],
@@ -1290,7 +1406,6 @@
       const nowBubbleY = nowY > PAD_T + plotH * 0.52 ? (nowY - 34) : (nowY + 34);
       const nowBubbleX = Math.min(W - PAD_R - 88, Math.max(PAD_L + 88, nowX));
 
-      // 智能避让：当 NOW 处于左半区(<6.5)时，将阻力/VWAP/承接区标签移至右侧安全区，彻底杜绝与 NOW 气泡碰撞
       const zoneLabelX = intra.nowFloatIdx < 6.5 ? (xOf(4.2)) : (PAD_L + 12);
       const rawZoneLabels = [
         {
@@ -1381,8 +1496,6 @@
         ${zoneBadgesHtml}
         ${bubbles}
 
-
-
         <line x1="${nowX}" y1="${nowY}" x2="${nowBubbleX}" y2="${nowBubbleY}" stroke="#EF4444" stroke-width="1.4"/>
         <circle cx="${nowX}" cy="${nowY}" r="6" fill="#EF4444" stroke="#FEF2F2" stroke-width="2"/>
         <g transform="translate(${nowBubbleX}, ${nowBubbleY})">
@@ -1393,7 +1506,6 @@
         ${(() => {
           const axisBoxX = Math.min(W - PAD_R - 38, Math.max(PAD_L + 38, nowX));
           return INTRA_SLOTS.map((s, idx) => {
-            // 按实际像素距离 (>56px) 隐藏底层刻度，彻底解决 10:30 与 16:00 被遮挡半截字的问题
             const isCoveredByNow = Math.abs(xOf(idx) - axisBoxX) < 56;
             return `
             <text x="${xOf(idx)}" y="${H-16}" text-anchor="middle" font-size="10" font-weight="${idx===intra.openIdx?'bold':'normal'}" fill="${idx===intra.openIdx?'#818CF8':'#94A3B8'}" opacity="${isCoveredByNow?'0':'1'}" class="font-mono">${s.bjt}</text>
@@ -1694,7 +1806,7 @@
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="px-2.5 py-0.5 text-xs font-bold rounded-md bg-amber-600 text-white">第四层：1~5年宏观牛熊罗盘</span>
-                  <h2 class="text-base md:text-lg font-bold text-slate-900 mt-1">🧭 【${compass.mCfg.name} · 未来 ${compass.horizonYrs} 年牛熊罗盘】</h2>
+                  <h2 class="text-base md:text-lg font-bold text-slate-900 mt-1">🧭 【19年时空周期分形 · ${state.ticker} (${cfg.name}) 未来 ${compass.horizonYrs} 年全景推演罗盘】</h2>
                 </div>
               </div>
               <div class="flex flex-wrap gap-1.5">

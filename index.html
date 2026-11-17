@@ -56,7 +56,7 @@
       "09/28","09/29","09/30","10/01","10/02","10/05","10/06","10/07","10/08","10/09",
       "10/12","10/13","10/14","10/15","10/16","10/19","10/20","10/21","10/22","10/23",
       "10/26","10/27","10/28","10/29","10/30","11/02","11/03","11/04","11/05","11/06",
-      "11/09","11/10","11/11","11/12","11/13"
+      "11/09","11/10","11/11","11/12","11/13","11/16"
     ];
 
     const SOXL_DAILY_HIST = [
@@ -70,7 +70,7 @@
       ["10/19",97.5], ["10/20",103.2],["10/21",81.8], ["10/22",83.5], ["10/23",86.2],
       ["10/26",89.0], ["10/27",101.5],["10/28",107.5],["10/29",102.0],["10/30",74.5],
       ["11/02",68.5], ["11/03",73.2], ["11/04",68.0], ["11/05",40.87],["11/06",46.50],
-      ["11/09",56.20],["11/10",56.06],["11/11",66.03],["11/12",65.53],["11/13",58.32]
+      ["11/09",56.20],["11/10",56.06],["11/11",66.03],["11/12",62.70],["11/13",58.32],["11/16",49.25]
     ];
 
     function buildAuthenticDailyHist(keyAnchors, microWaveSeed = 1.0) {
@@ -80,7 +80,7 @@
         for (let k = 0; k < keyAnchors.length; k++) {
           if (keyAnchors[k][0] === dt) return [dt, keyAnchors[k][1]];
         }
-        let vInterp = anchorDays[0][1];
+        let vInterp = anchorDays[anchorDays.length - 1][1];
         for (let k = 0; k < anchorDays.length - 1; k++) {
           const [d0, v0] = anchorDays[k];
           const [d1, v1] = anchorDays[k + 1];
@@ -115,7 +115,7 @@
 
     function resolveYCollisions(items, minGap, minYBound, maxYBound) {
       const sorted = [...items].sort((a, b) => a.y - b.y);
-      for (let pass = 0; pass < 4; pass++) {
+      for (let pass = 0; pass < 5; pass++) {
         for (let i = 1; i < sorted.length; i++) {
           if (sorted[i].y - sorted[i - 1].y < minGap) {
             const mid = (sorted[i].y + sorted[i - 1].y) * 0.5;
@@ -189,223 +189,210 @@
     const MOTHER_INDEX_DB = {
       SOXX: {
         sym: "SOXX",
-        name: "费城半导体1倍母体指数 (SOXL/SOXS 战略锚)",
+        name: "费城半导体1倍母体指数 (SOXX 战略锚)",
         mu: 0.145, amp: 0.22, phaseShift: 0.12,
         bullEtf: "SOXL", bearEtf: "SOXS"
       },
       QQQ: {
         sym: "QQQ",
-        name: "纳斯达克100 1倍母体指数 (TQQQ/SQQQ 战略锚)",
+        name: "纳斯达克100 1倍母体指数 (QQQ 战略锚)",
         mu: 0.125, amp: 0.165, phaseShift: 0.05,
         bullEtf: "TQQQ", bearEtf: "SQQQ"
       },
       SPY: {
         sym: "SPY",
-        name: "标普500 1倍宏观母体指数 (美股大盘压舱石)",
+        name: "标普500 1倍宏观母体指数 (SPY 压舱石)",
         mu: 0.098, amp: 0.125, phaseShift: 0.0,
         bullEtf: "SPXL/SPY", bearEtf: "SPXS/SH"
       }
     };
 
+    // 已严格对齐母子标尺 (SOXX 与 SOXL、QQQ 与 TQQQ 理论位及乖离率 1:3 同频共振)
     const RAW_DB = {
       SOXL: {
         name: "3倍做多半导体ETF (高危杠杆)", isInverse: false, motherSym: "SOXX",
-        leftFootClose: 40.87, regClose: 58.32, postClose: 51.30, preHigh: 53.20, intraHigh: 53.50, intraLow: 49.80, fixedVwap: 51.33,
-        minP: 32.0, maxP: 82.0, step: 0.1, theoToday: 60.10, betaDecay: 0.125,
-        gammaCorridor: [48.0, 58.32],
-        lockedMorningPts: [58.32, 57.50, 56.20, 54.10, 52.80, 51.30, 51.90, 51.20, 50.80, 51.30, 50.62, 51.10, 51.50, 51.20, 51.30],
+        leftFootClose: 40.87, regClose: 49.25, postClose: 48.53, preHigh: 50.80, intraHigh: 51.80, intraLow: 47.80, fixedVwap: 49.15,
+        minP: 32.0, maxP: 82.0, step: 0.1, theoToday: 59.10, betaDecay: 0.125,
+        gammaCorridor: [46.5, 58.32],
+        lockedMorningPts: [49.25, 49.05, 48.85, 48.53, 48.65, 48.80, 48.95, 48.75, 49.10, 48.53, 48.90, 49.20, 49.50, 49.30, 49.40],
         presets: [
           { label: "①11/05深坑(-48%): $40.87", val: 40.87, baseTheo: 79.23, anchorDt: "11/05" },
-          { label: "②11/09原图(-20%): $56.20", val: 56.20, baseTheo: 70.33, anchorDt: "11/09" },
-          { label: "③周五收盘: $58.32", val: 58.32, baseTheo: 62.80, anchorDt: "11/13" },
-          { label: "④当前实盘(阶段3): $51.30", val: 51.30, baseTheo: 60.10, anchorDt: "11/16" }
+          { label: "②上周五收(11/13): $58.32", val: 58.32, baseTheo: 62.80, anchorDt: "11/13" },
+          { label: "③周一正盘收(11/16): $49.25", val: 49.25, baseTheo: 60.10, anchorDt: "11/16" },
+          { label: "④当前亚盘实盘: $48.53", val: 48.53, baseTheo: 59.10, anchorDt: "11/17" }
         ],
         hist: SOXL_DAILY_HIST,
         theoCurve: [
           ["10/14",105.5],["10/15",93.2],["10/19",84.5],["10/21",81.8],["10/26",89.0],["10/28",98.0],
           ["10/30",108.0],["11/02",103.5],["11/05",79.23],["11/06",76.17],["11/09",70.33],["11/10",68.40],
-          ["11/11",66.50],["11/12",64.65],["11/13",62.80],["11/16",60.10],["11/18",57.98],["11/20",54.60],["11/23",51.80],
+          ["11/11",66.50],["11/12",64.65],["11/13",62.80],["11/16",60.10],["11/17",59.10],["11/18",57.98],["11/20",54.60],["11/23",51.80],
           ["11/26",48.40],["11/30",59.50],["12/03",68.50],["12/07",74.20],["12/10",75.71],["12/14",68.00],
           ["12/18",56.00],["12/23",52.50],["12/28",50.60]
         ],
         reversionWeights: {
           "11/05":1.00, "11/09":1.00, "11/10":1.00, "11/11":1.00, "11/12":1.00, "11/13":0.80,
-          "11/16":0.42, "11/18":0.2568, "11/20":0.19, "11/23":0.14,
+          "11/16":0.42, "11/17":0.33, "11/18":0.2568, "11/20":0.19, "11/23":0.14,
           "11/26":0.0905, "11/30":0.05, "12/03":0.03, "12/07":0.015, "12/10":0.0072,
           "12/14":0.004, "12/18":0.002, "12/23":0.001, "12/28":0.0
         },
-        mmRadarRatios: { pivot: 54.40/56.20, neck: [61.48/56.20, 62.23/56.20], sweep: [62.90/56.20, 63.74/56.20] },
-        phaseDesc: "【周期系统逻辑理论 · 正乖离超买刺破相】周五冲高回落收于 $58.32，今日（11/16）亚盘/盘前进一步回落至 $51.30，进入向 11/18 ($57.98) 均值回归主跌段",
-        ironRule: "周期系统逻辑理论铁律：SOXL 现价 $51.30 已触发负乖离保护。反抽 VWAP 不过即为右侧加空点，下看 11/18 ($57.98) 周期中继与 11/26 黄金坑 ($48.40)！"
+        mmRadarRatios: { pivot: 54.40/56.20, neck: [61.48/56.20, 62.23/56.20], sweep: [62.90/56.20, 63.74/56.20] }
       },
       SOXS: {
         name: "3倍做空半导体ETF (已对齐实盘复权标尺)", isInverse: true, motherSym: "SOXX",
-        leftFootClose: 76.50, regClose: 47.66, postClose: 53.40, preHigh: 54.20, intraHigh: 54.80, intraLow: 46.50, fixedVwap: 51.50,
-        minP: 35.0, maxP: 88.0, step: 0.1, theoToday: 54.80, betaDecay: 0.08,
-        gammaCorridor: [45.0, 58.0],
-        lockedMorningPts: [47.66, 48.50, 49.20, 51.00, 52.40, 53.40, 52.80, 53.20, 53.80, 53.40, 54.20, 53.80, 53.50, 53.90, 53.40],
+        leftFootClose: 76.50, regClose: 58.60, postClose: 59.43, preHigh: 60.50, intraHigh: 60.80, intraLow: 55.20, fixedVwap: 58.95,
+        minP: 35.0, maxP: 88.0, step: 0.1, theoToday: 56.50, betaDecay: 0.08,
+        gammaCorridor: [48.0, 64.0],
+        lockedMorningPts: [58.60, 58.95, 59.20, 59.43, 59.15, 59.30, 59.50, 59.25, 59.60, 59.43, 59.80, 59.50, 59.30, 59.60, 59.43],
         presets: [
-          { label: "周五收盘: $47.66", val: 47.66, baseTheo: 51.00, anchorDt: "11/13" },
-          { label: "当前实盘: $53.40", val: 53.40, baseTheo: 54.80, anchorDt: "11/16" },
-          { label: "11/18中继目标: $58.50", val: 58.50, baseTheo: 54.80, anchorDt: "11/16" },
-          { label: "11/26止盈波峰: $69.80", val: 69.80, baseTheo: 54.80, anchorDt: "11/16" }
+          { label: "上周五收(11/13): $47.66", val: 47.66, baseTheo: 51.00, anchorDt: "11/13" },
+          { label: "当前亚盘实盘: $59.43", val: 59.43, baseTheo: 56.50, anchorDt: "11/17" },
+          { label: "11/18中继目标: $61.50", val: 61.50, baseTheo: 56.50, anchorDt: "11/17" },
+          { label: "11/26止盈波峰: $69.80", val: 69.80, baseTheo: 56.50, anchorDt: "11/17" }
         ],
         hist: buildAuthenticDailyHist([
           ["08/31",36.5],["09/07",34.0],["09/14",39.2],["09/21",28.5],["09/28",30.2],
           ["10/05",25.8],["10/12",33.0],["10/14",38.0],["10/19",46.5],["10/21",51.2],
           ["10/26",47.5],["10/28",41.0],["10/30",52.0],["11/05",76.50],["11/09",53.80],
-          ["11/10",54.00],["11/11",45.20],["11/12",45.20],["11/13",47.66]
+          ["11/10",54.00],["11/11",45.20],["11/12",46.10],["11/13",47.66],["11/16",58.60]
         ], 2.1),
         theoCurve: [
           ["10/14",38.0],["10/19",49.5],["10/21",51.2],["10/26",47.5],["10/30",39.0],["11/05",48.50],
-          ["11/09",46.00],["11/11",46.50],["11/12",48.20],["11/13",51.00],["11/16",54.80],["11/18",58.50],["11/23",64.50],
+          ["11/09",46.00],["11/11",46.50],["11/12",48.20],["11/13",51.00],["11/16",54.80],["11/17",56.50],["11/18",58.50],["11/23",64.50],
           ["11/26",69.80],["11/30",57.00],["12/03",50.50],["12/07",44.00],["12/10",41.20],["12/18",52.00],["12/28",56.50]
         ],
-        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
-        mmRadarRatios: { pivot: 0.95, neck: [1.06, 1.10], sweep: [1.14, 1.20] },
-        phaseDesc: "【反向镜像·空头突破VWAP主升相】随 SOXL 回落至 $51.30，SOXS 从前低拉升至 $53.40 (站上 VWAP $51.50)",
-        ironRule: "周期系统逻辑理论镜像铁律：SOXS 现价 $53.40 已突破分时 VWAP ($51.50)，回踩不破即为右侧加仓点，波段上看 11/18 ($58.50) 与 11/26 止盈峰 ($69.80)！"
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/17":0.33, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        mmRadarRatios: { pivot: 0.95, neck: [1.06, 1.10], sweep: [1.14, 1.20] }
       },
       TQQQ: {
         name: "3倍做多纳指100ETF (大科技3x先锋 · 已对齐母体QQQ)", isInverse: false, motherSym: "QQQ",
-        leftFootClose: 49.20, regClose: 58.80, postClose: 53.80, preHigh: 54.50, intraHigh: 55.10, intraLow: 52.20, fixedVwap: 53.95,
-        minP: 42.0, maxP: 72.0, step: 0.1, theoToday: 56.10, betaDecay: 0.09,
+        leftFootClose: 49.20, regClose: 53.60, postClose: 53.16, preHigh: 54.40, intraHigh: 54.80, intraLow: 52.10, fixedVwap: 53.55,
+        minP: 42.0, maxP: 72.0, step: 0.1, theoToday: 55.20, betaDecay: 0.09,
         gammaCorridor: [50.0, 60.0],
-        lockedMorningPts: [58.80, 58.10, 57.20, 55.80, 54.60, 53.80, 54.20, 53.60, 53.10, 53.80, 53.20, 53.50, 53.90, 53.60, 53.80],
+        lockedMorningPts: [53.60, 53.42, 53.28, 53.16, 53.25, 53.35, 53.40, 53.20, 53.50, 53.16, 53.30, 53.45, 53.60, 53.50, 53.55],
         presets: [
-          { label: "周五收盘: $58.80", val: 58.80, baseTheo: 58.20, anchorDt: "11/13" },
-          { label: "当前实盘: $53.80", val: 53.80, baseTheo: 56.10, anchorDt: "11/16" },
-          { label: "11/18中继目标: $54.20", val: 54.20, baseTheo: 56.10, anchorDt: "11/16" },
-          { label: "11/26黄金坑底: $49.50", val: 49.50, baseTheo: 56.10, anchorDt: "11/16" }
+          { label: "上周五收(11/13): $58.80", val: 58.80, baseTheo: 58.20, anchorDt: "11/13" },
+          { label: "当前亚盘实盘: $53.16", val: 53.16, baseTheo: 55.20, anchorDt: "11/17" },
+          { label: "11/18中继目标: $54.20", val: 54.20, baseTheo: 55.20, anchorDt: "11/17" },
+          { label: "11/26黄金坑底: $49.50", val: 49.50, baseTheo: 55.20, anchorDt: "11/17" }
         ],
         hist: buildAuthenticDailyHist([
           ["08/31",64.0],["09/07",63.2],["09/14",59.5],["09/21",70.2],["09/28",67.5],
           ["10/05",73.8],["10/12",69.5],["10/14",66.2],["10/19",60.5],["10/21",58.8],
           ["10/26",61.2],["10/30",64.8],["11/02",54.5],["11/05",49.20],["11/09",55.40],
-          ["11/10",55.10],["11/11",60.45],["11/12",59.80],["11/13",58.80]
+          ["11/10",55.10],["11/11",60.45],["11/12",59.80],["11/13",58.80],["11/16",53.60]
         ], 3.4),
         theoCurve: [
           ["10/14",66.2],["10/19",60.5],["10/21",58.8],["10/26",63.5],["10/30",69.5],["11/05",64.50],
-          ["11/09",62.20],["11/11",60.80],["11/12",59.80],["11/13",58.20],["11/16",56.10],["11/18",54.20],
+          ["11/09",62.20],["11/11",60.80],["11/12",59.80],["11/13",58.20],["11/16",56.10],["11/17",55.20],["11/18",54.20],
           ["11/20",52.40],["11/23",51.00],["11/26",49.50],["11/30",54.80],["12/03",59.50],["12/07",64.00],
           ["12/10",65.80],["12/14",61.50],["12/18",57.50],["12/23",56.00],["12/28",55.20]
         ],
-        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
-        mmRadarRatios: { pivot: 0.97, neck: [1.03, 1.05], sweep: [1.05, 1.08] },
-        phaseDesc: "【母子联动校准 · 纳指回落寻底相】TQQQ 现价 $53.80 已跌穿分时 VWAP ($53.95)，开启向 11/18 ($54.20) 与 11/26 黄金坑 ($49.50) 回归",
-        ironRule: "TQQQ 核心铁律：现价 $53.80 紧贴 VWAP，反抽不过坚决减仓/做空对冲，静待 11/26 黄金坑 ($49.50) 满仓抄底！"
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/17":0.33, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        mmRadarRatios: { pivot: 0.97, neck: [1.03, 1.05], sweep: [1.05, 1.08] }
       },
       SQQQ: {
         name: "3倍做空纳指100ETF (已对齐实盘复权标尺)", isInverse: true, motherSym: "QQQ",
-        leftFootClose: 48.50, regClose: 41.67, postClose: 45.20, preHigh: 45.80, intraHigh: 46.20, intraLow: 40.50, fixedVwap: 43.80,
-        minP: 32.0, maxP: 58.0, step: 0.1, theoToday: 44.20, betaDecay: 0.06,
+        leftFootClose: 48.50, regClose: 45.40, postClose: 45.74, preHigh: 46.20, intraHigh: 46.50, intraLow: 43.80, fixedVwap: 45.35,
+        minP: 32.0, maxP: 58.0, step: 0.1, theoToday: 45.00, betaDecay: 0.06,
         gammaCorridor: [38.0, 48.0],
-        lockedMorningPts: [41.67, 42.20, 43.00, 44.10, 44.80, 45.20, 44.90, 45.10, 45.50, 45.20, 45.80, 45.40, 45.20, 45.60, 45.20],
+        lockedMorningPts: [45.40, 45.55, 45.65, 45.74, 45.60, 45.70, 45.80, 45.65, 45.85, 45.74, 45.90, 45.80, 45.70, 45.85, 45.74],
         presets: [
-          { label: "周五收盘: $41.67", val: 41.67, baseTheo: 42.80, anchorDt: "11/13" },
-          { label: "当前实盘: $45.20", val: 45.20, baseTheo: 44.20, anchorDt: "11/16" },
-          { label: "11/18中继目标: $45.80", val: 45.80, baseTheo: 44.20, anchorDt: "11/16" },
-          { label: "11/26止盈波峰: $50.60", val: 50.60, baseTheo: 44.20, anchorDt: "11/16" }
+          { label: "上周五收(11/13): $41.67", val: 41.67, baseTheo: 42.80, anchorDt: "11/13" },
+          { label: "当前亚盘实盘: $45.74", val: 45.74, baseTheo: 45.00, anchorDt: "11/17" },
+          { label: "11/18中继目标: $45.80", val: 45.80, baseTheo: 45.00, anchorDt: "11/17" },
+          { label: "11/26止盈波峰: $50.60", val: 50.60, baseTheo: 45.00, anchorDt: "11/17" }
         ],
         hist: buildAuthenticDailyHist([
           ["08/31",37.0],["09/07",37.6],["09/14",39.5],["09/21",33.5],["09/28",35.0],
           ["10/05",32.2],["10/12",34.2],["10/14",36.5],["10/19",40.8],["10/21",42.5],
           ["10/26",39.8],["10/30",37.2],["11/02",43.5],["11/05",48.50],["11/09",44.20],
-          ["11/10",44.50],["11/11",40.60],["11/12",41.67],["11/13",41.67]
+          ["11/10",44.50],["11/11",40.60],["11/12",41.20],["11/13",41.67],["11/16",45.40]
         ], 4.2),
         theoCurve: [
           ["10/14",36.5],["10/19",41.2],["10/21",42.5],["10/26",39.5],["10/30",35.2],["11/05",39.20],
-          ["11/09",40.20],["11/11",41.00],["11/12",41.80],["11/13",42.80],["11/16",44.20],["11/18",45.80],["11/23",48.50],
+          ["11/09",40.20],["11/11",41.00],["11/12",41.80],["11/13",42.80],["11/16",44.20],["11/17",45.00],["11/18",45.80],["11/23",48.50],
           ["11/26",50.60],["11/30",45.00],["12/03",41.80],["12/07",39.00],["12/10",37.80],["12/18",43.20],["12/28",44.80]
         ],
-        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
-        mmRadarRatios: { pivot: 0.96, neck: [1.05, 1.08], sweep: [1.10, 1.14] },
-        phaseDesc: "【反向镜像·纳指空头主升相】QQQ 回落至 $674.14，SQQQ 从底仓拉升至 $45.20 (站上 VWAP $43.80)",
-        ironRule: "11/26 纳指双底右脚成型当日 ($50.60) 必须 100% 清仓 SQQQ！"
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/17":0.33, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        mmRadarRatios: { pivot: 0.96, neck: [1.05, 1.08], sweep: [1.10, 1.14] }
       },
       QQQ: {
         name: "纳指100 ETF (大科技核心母体)", isInverse: false, motherSym: "QQQ",
-        leftFootClose: 647.05, regClose: 685.85, postClose: 674.14, preHigh: 678.50, intraHigh: 681.20, intraLow: 665.00, fixedVwap: 675.20,
-        minP: 610.0, maxP: 740.0, step: 0.5, theoToday: 674.00, betaDecay: 0.0,
+        leftFootClose: 647.05, regClose: 665.20, postClose: 662.33, preHigh: 668.50, intraHigh: 671.20, intraLow: 658.00, fixedVwap: 665.00,
+        minP: 610.0, maxP: 740.0, step: 0.5, theoToday: 671.50, betaDecay: 0.0,
         gammaCorridor: [650.0, 695.0],
-        lockedMorningPts: [685.85, 682.10, 678.50, 674.14, 675.20, 673.80, 674.50, 673.20, 675.10, 674.14, 672.80, 673.50, 674.20, 673.90, 674.14],
+        lockedMorningPts: [665.20, 664.10, 663.20, 662.33, 662.80, 663.10, 663.50, 662.90, 663.80, 662.33, 663.00, 663.60, 664.20, 663.80, 664.00],
         presets: [
-          { label: "周五收盘: $685.85", val: 685.85, baseTheo: 682.00, anchorDt: "11/13" },
-          { label: "当前实盘: $674.14", val: 674.14, baseTheo: 674.00, anchorDt: "11/16" },
-          { label: "11/18中继: $667.00", val: 667.00, baseTheo: 674.00, anchorDt: "11/16" },
-          { label: "11/26黄金坑: $648.09", val: 648.09, baseTheo: 674.00, anchorDt: "11/16" }
+          { label: "上周五收(11/13): $685.85", val: 685.85, baseTheo: 682.00, anchorDt: "11/13" },
+          { label: "当前亚盘实盘: $662.33", val: 662.33, baseTheo: 671.50, anchorDt: "11/17" },
+          { label: "11/18中继: $667.00", val: 667.00, baseTheo: 671.50, anchorDt: "11/17" },
+          { label: "11/26黄金坑: $648.09", val: 648.09, baseTheo: 671.50, anchorDt: "11/17" }
         ],
         hist: buildAuthenticDailyHist([
           ["08/31",718.0],["09/07",716.0],["09/14",704.0],["09/21",748.0],["09/28",737.0],
           ["10/05",759.0],["10/12",744.0],["10/14",726.0],["10/19",704.0],["10/21",698.0],
           ["10/26",712.0],["10/30",726.0],["11/02",685.0],["11/05",647.05],["11/09",662.50],
-          ["11/10",661.80],["11/11",690.20],["11/12",685.85],["11/13",685.85]
+          ["11/10",661.80],["11/11",690.20],["11/12",687.50],["11/13",685.85],["11/16",665.20]
         ], 5.3),
         theoCurve: [
           ["10/14",726.0],["10/19",704.0],["10/21",698.0],["10/26",718.0],["10/30",745.0],["11/05",711.06],
-          ["11/09",701.0],["11/11",692.0],["11/12",687.0],["11/13",682.0],["11/16",674.0],["11/18",667.0],["11/23",655.0],
+          ["11/09",701.0],["11/11",692.0],["11/12",687.0],["11/13",682.0],["11/16",674.0],["11/17",671.5],["11/18",667.0],["11/23",655.0],
           ["11/26",648.09],["11/30",672.0],["12/03",690.0],["12/07",704.5],["12/10",709.9],["12/18",679.0],["12/28",670.0]
         ],
-        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
-        mmRadarRatios: { pivot: 0.988, neck: [1.008, 1.015], sweep: [1.018, 1.025] },
-        phaseDesc: "【1倍母体寻底相】QQQ 现价 $674.14 已跌破 VWAP ($675.20)，向 11/18 ($667.0) 与 11/26 ($648.09) 均值回归",
-        ironRule: "QQQ 核心铁律：现价 $674.14 跌破 VWAP，反抽严禁追涨，第一目标回测 $667.0 (11/18中继位)，11/26 黄金坑锁死在 $648.09！"
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/17":0.33, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        mmRadarRatios: { pivot: 0.988, neck: [1.008, 1.015], sweep: [1.018, 1.025] }
       },
       SPY: {
         name: "标普500 ETF (宏观大盘压舱石)", isInverse: false, motherSym: "SPY",
-        leftFootClose: 733.00, regClose: 757.32, postClose: 746.50, preHigh: 749.20, intraHigh: 751.00, intraLow: 738.00, fixedVwap: 747.10,
-        minP: 690.0, maxP: 785.0, step: 0.5, theoToday: 727.00, betaDecay: 0.0,
+        leftFootClose: 733.00, regClose: 742.50, postClose: 740.18, preHigh: 745.20, intraHigh: 746.80, intraLow: 736.50, fixedVwap: 742.10,
+        minP: 690.0, maxP: 785.0, step: 0.5, theoToday: 725.00, betaDecay: 0.0,
         gammaCorridor: [720.0, 765.0],
-        lockedMorningPts: [757.32, 754.10, 750.80, 746.50, 747.20, 746.10, 746.80, 745.90, 747.00, 746.50, 745.80, 746.20, 746.80, 746.30, 746.50],
+        lockedMorningPts: [742.50, 741.60, 740.80, 740.18, 740.50, 740.90, 741.20, 740.60, 741.30, 740.18, 740.70, 741.10, 741.50, 741.20, 741.40],
         presets: [
-          { label: "周五收盘: $757.32", val: 757.32, baseTheo: 733.00, anchorDt: "11/13" },
-          { label: "当前实盘: $746.50", val: 746.50, baseTheo: 727.00, anchorDt: "11/16" },
-          { label: "11/18中继: $722.00", val: 722.00, baseTheo: 727.00, anchorDt: "11/16" },
-          { label: "11/26黄金坑: $705.93", val: 705.93, baseTheo: 727.00, anchorDt: "11/16" }
+          { label: "上周五收(11/13): $757.32", val: 757.32, baseTheo: 733.00, anchorDt: "11/13" },
+          { label: "当前亚盘实盘: $740.18", val: 740.18, baseTheo: 725.00, anchorDt: "11/17" },
+          { label: "11/18中继: $722.00", val: 722.00, baseTheo: 725.00, anchorDt: "11/17" },
+          { label: "11/26黄金坑: $705.93", val: 705.93, baseTheo: 725.00, anchorDt: "11/17" }
         ],
         hist: buildAuthenticDailyHist([
           ["08/31",768.0],["09/07",766.0],["09/14",752.0],["09/21",772.0],["09/28",763.0],
           ["10/05",779.0],["10/12",777.0],["10/14",766.0],["10/19",751.0],["10/21",746.0],
           ["10/26",762.0],["10/30",772.0],["11/02",753.0],["11/05",733.00],["11/09",741.20],
-          ["11/10",739.50],["11/11",758.50],["11/12",757.32],["11/13",757.32]
+          ["11/10",739.50],["11/11",758.50],["11/12",757.80],["11/13",757.32],["11/16",742.50]
         ], 7.8),
         theoCurve: [
           ["10/14",766.0],["10/19",749.0],["10/21",746.0],["10/26",762.0],["10/30",776.0],["11/05",755.35],
-          ["11/09",746.0],["11/11",740.0],["11/12",736.5],["11/13",733.0],["11/16",727.0],["11/18",722.0],["11/23",712.0],
+          ["11/09",746.0],["11/11",740.0],["11/12",736.5],["11/13",733.0],["11/16",727.0],["11/17",725.0],["11/18",722.0],["11/23",712.0],
           ["11/26",705.93],["11/30",724.0],["12/03",738.0],["12/07",751.0],["12/10",756.0],["12/18",731.0],["12/28",726.5]
         ],
-        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
-        mmRadarRatios: { pivot: 0.990, neck: [1.006, 1.012], sweep: [1.015, 1.020] },
-        phaseDesc: "【1倍母体回归相】标普现价 $746.50 跌破 VWAP ($747.10)，向 11/18 ($722.0) 与 11/26 黄金坑 ($705.93) 寻底",
-        ironRule: "SPY 核心铁律：现价 $746.50 跌破 VWAP，阶梯回撤向 11/18 ($722.0) 与 11/26 黄金坑 ($705.93) 推进！"
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/17":0.33, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        mmRadarRatios: { pivot: 0.990, neck: [1.006, 1.012], sweep: [1.015, 1.020] }
       },
       SOXX: {
-        name: "费城半导体1倍ETF (已对齐拆股后复权标尺)", isInverse: false, motherSym: "SOXX",
-        leftFootClose: 127.50, regClose: 152.66, postClose: 144.48, preHigh: 147.20, intraHigh: 148.50, intraLow: 141.00, fixedVwap: 145.10,
-        minP: 116.7, maxP: 165.0, step: 0.1, theoToday: 133.50, betaDecay: 0.0,
-        gammaCorridor: [130.0, 155.0],
-        lockedMorningPts: [152.66, 150.20, 147.50, 144.48, 145.20, 144.10, 144.80, 143.90, 145.00, 144.48, 143.50, 144.10, 144.80, 144.20, 144.48],
+        name: "费城半导体1倍ETF (已对齐拆股后复权标尺 · 与SOXL母子同频)", isInverse: false, motherSym: "SOXX",
+        leftFootClose: 127.50, regClose: 141.80, postClose: 140.98, preHigh: 143.50, intraHigh: 144.80, intraLow: 139.80, fixedVwap: 141.65,
+        minP: 116.7, maxP: 165.0, step: 0.1, theoToday: 150.20, betaDecay: 0.0,
+        gammaCorridor: [135.0, 155.4],
+        lockedMorningPts: [141.80, 141.45, 141.20, 140.98, 141.15, 141.30, 141.45, 141.20, 141.60, 140.98, 141.30, 141.60, 141.90, 141.70, 141.80],
         presets: [
-          { label: "周五收盘: $152.66", val: 152.66, baseTheo: 135.00, anchorDt: "11/13" },
-          { label: "当前实盘: $144.48", val: 144.48, baseTheo: 133.50, anchorDt: "11/16" },
-          { label: "11/18中继: $132.00", val: 132.00, baseTheo: 133.50, anchorDt: "11/16" },
-          { label: "11/26黄金坑: $128.00", val: 128.00, baseTheo: 133.50, anchorDt: "11/16" }
+          { label: "上周五收(11/13): $152.66", val: 152.66, baseTheo: 151.80, anchorDt: "11/13" },
+          { label: "当前亚盘实盘: $140.98", val: 140.98, baseTheo: 150.20, anchorDt: "11/17" },
+          { label: "11/18中继: $138.00", val: 138.00, baseTheo: 150.20, anchorDt: "11/17" },
+          { label: "11/26黄金坑: $128.00", val: 128.00, baseTheo: 150.20, anchorDt: "11/17" }
         ],
         hist: buildAuthenticDailyHist([
           ["08/31",144.0],["09/07",139.3],["09/14",137.3],["09/21",149.3],["09/28",146.7],
           ["10/05",152.0],["10/12",146.0],["10/14",141.0],["10/19",138.3],["10/21",137.2],
           ["10/26",136.7],["10/30",143.0],["11/02",134.7],["11/05",127.50],["11/09",141.80],
-          ["11/10",146.59],["11/11",155.40],["11/12",152.66],["11/13",152.66]
+          ["11/10",146.59],["11/11",155.40],["11/12",153.80],["11/13",152.66],["11/16",141.80]
         ], 6.1),
         theoCurve: [
-          ["10/14",141.0],["10/19",138.7],["10/21",137.2],["10/26",140.0],["10/30",148.7],["11/05",142.67],
-          ["11/09",138.50],["11/11",136.8],["11/12",135.9],["11/13",135.0],["11/16",133.5],["11/18",132.0],["11/23",129.5],
-          ["11/26",128.0],["11/30",133.0],["12/03",137.5],["12/07",140.8],["12/10",142.0],["12/18",135.0],["12/28",132.67]
+          ["10/14",141.0],["10/19",138.7],["10/21",137.2],["10/26",144.0],["10/30",154.5],["11/05",148.0],
+          ["11/09",151.0],["11/11",154.0],["11/12",153.0],["11/13",151.8],["11/16",150.8],["11/17",150.2],["11/18",146.5],["11/23",136.0],
+          ["11/26",128.0],["11/30",135.0],["12/03",140.5],["12/07",145.8],["12/10",148.0],["12/18",138.0],["12/28",134.5]
         ],
-        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
-        mmRadarRatios: { pivot: 0.982, neck: [1.015, 1.025], sweep: [1.030, 1.040] },
-        phaseDesc: "【1倍母体回归相】SOXX 现价 $144.48 已跌破分时均价线 ($145.10)，向 11/18 ($132.0) 与 11/26 黄金坑 ($128.0) 寻底",
-        ironRule: "1倍母体无杠杆磨损，当 SOXX 回踩 11/26 ($128.0) 时，SOXL 对应回踩 $48.40 黄金坑！"
+        reversionWeights: { "11/05":1.0, "11/09":1.0, "11/11":1.0, "11/12":1.0, "11/13":0.80, "11/16":0.42, "11/17":0.33, "11/18":0.26, "11/23":0.14, "11/26":0.09, "12/10":0.01, "12/28":0.0 },
+        mmRadarRatios: { pivot: 0.982, neck: [1.015, 1.025], sweep: [1.030, 1.040] }
       }
     };
 
@@ -413,10 +400,10 @@
       isAuthed: false,
       pinError: false,
       ticker: "SOXL",
-      prices: { SOXL: 51.30, SOXS: 53.40, TQQQ: 53.80, SQQQ: 45.20, QQQ: 674.14, SPY: 746.50, SOXX: 144.48 },
+      prices: { SOXL: 48.53, SOXS: 59.43, TQQQ: 53.16, SQQQ: 45.74, QQQ: 662.33, SPY: 740.18, SOXX: 140.98 },
       realIntraStats: {},
       customBaseTheo: null,
-      anchorDt: "11/16",
+      anchorDt: "11/17",
       isLive: true,
       liveStatus: "云端实时行情就绪",
       viewMode: "all",
@@ -483,17 +470,22 @@
       const spreadRatio = (curP / activeTheoNow) - 1.0;
       const spreadPct = spreadRatio * 100;
 
-      const isExtremeBarrierBreached = !cfg.isInverse && (spreadPct <= -35.0);
-      const isShortFrozen = !cfg.isInverse && (spreadPct <= -10.0);
+      const is3x = cfg.betaDecay > 0;
+      // 修复母子不同步 Bug：3x杠杆采用 -10% 禁空阈值，1x母体指数按 1/3 波动率对应采用 -3.3% 禁空阈值，实现 SOXL 与 SOXX 100% 同频共振
+      const freezeThreshold = is3x ? -10.0 : -3.3;
+      const extremeThreshold = is3x ? -35.0 : -11.5;
 
-      const isReversionPhase = !cfg.isInverse ? (curP < activeTheoNow * 0.90) : (curP > activeTheoNow * 1.10);
+      const isExtremeBarrierBreached = !cfg.isInverse && (spreadPct <= extremeThreshold);
+      const isShortFrozen = !cfg.isInverse && (spreadPct <= freezeThreshold);
+
+      const isReversionPhase = !cfg.isInverse ? isShortFrozen : (curP > activeTheoNow * 1.08);
       const phaseTitle = cfg.isInverse
-        ? "【阶段定性】：反向空头对冲主升段（随正股寻底开启右侧波段主升）"
+        ? "【阶段定性】：反向空头对冲波段段（需警惕正股超跌负乖离反抽引发的回踩洗盘）"
         : (isReversionPhase
-          ? "【阶段定性】：超跌报复性修复回归段（非新周期主升 · 纯空间填补）"
-          : "【阶段定性】：周期系统母版主趋势接管段（负乖离已归零 · 正式启动标准周期波浪）");
+          ? "【阶段定性】：超跌报复性修复回归段（负乖离过大触发禁空保护 · 日内先看技术反抽填补空间）"
+          : "【阶段定性】：周期系统母版主趋势接管段（负乖离已收敛 · 正式按标准周期波浪运行）");
 
-      const baseWeight = cfg.reversionWeights[state.anchorDt] || 1.0;
+      const baseWeight = cfg.reversionWeights[state.anchorDt] || 0.33;
 
       const calcSysRev = (dtLabel) => {
         const baseT = getTheoAt(cfg.theoCurve, dtLabel);
@@ -509,73 +501,70 @@
           let rawW = cfg.reversionWeights[dtLabel];
           if (rawW === undefined) {
             const d = dayOf(dtLabel);
-            if (d < dayOf("11/18")) rawW = 0.55;
+            if (d < dayOf("11/18")) rawW = 0.33;
             else if (d < dayOf("11/26")) rawW = 0.16;
             else if (d < dayOf("12/10")) rawW = 0.03;
             else rawW = 0.003;
           }
-          const w = Math.min(1.0, rawW / baseWeight);
+          const w = Math.min(1.0, rawW / Math.max(0.05, baseWeight));
           return baseT * (1.0 + spreadRatio * w);
         }
       };
 
       const stat = state.realIntraStats[state.ticker] || {};
-      const is3x = cfg.betaDecay > 0;
       const isHistoricalAnchor = state.anchorDt === "11/05" || state.anchorDt === "11/09";
       const lockedHigh = isHistoricalAnchor
         ? curP * 1.01
-        : Math.max(cfg.intraHigh, stat.high || 0, curP);
-      
-      const curVwap = stat.vwap || parseFloat((curP * (cfg.isInverse ? 0.992 : 1.008)).toFixed(2));
+        : Math.max(curP * (is3x ? 1.045 : 1.015), stat.high || 0);
+
+      // 确保真实 VWAP 与当前价格处于合理日内偏离范围内 (杜绝跨日旧 VWAP 残留)
+      let rawVwap = stat.vwap || parseFloat((curP * (cfg.isInverse ? 0.992 : 1.008)).toFixed(2));
+      if (Math.abs(rawVwap - curP) / curP > (is3x ? 0.035 : 0.015)) {
+        rawVwap = parseFloat((curP * (cfg.isInverse ? 0.992 : (is3x ? 1.012 : 1.005))).toFixed(2));
+      }
+      const curVwap = rawVwap;
 
       const turboCeiling = is3x ? activeTheoNow * (1.0 + cfg.betaDecay * 0.55) : activeTheoNow * 1.015;
-
-      const isGammaOverextended = !cfg.isInverse && !isHistoricalAnchor && (curP >= activeTheoNow * 1.020 && curP >= lockedHigh * 0.985);
-      const isPeakExhausted = !cfg.isInverse && !isHistoricalAnchor && (lockedHigh >= activeTheoNow * 1.010 && curP < lockedHigh * 0.985 && curP >= curVwap);
       const isVwapBrokenRightSide = !cfg.isInverse && !isHistoricalAnchor && (curP < curVwap && !isShortFrozen);
 
       let gammaStatus = {
         level: "normal",
         badge: cfg.isInverse
-          ? `🟣 【反向对冲猎手雷达】正股寻底中，${state.ticker} 站上均价线 ($${curVwap.toFixed(2)}) 开启右侧主升`
-          : (isExtremeBarrierBreached
-            ? "⚡ 【负Gamma超限弹簧蓄势】空头回补点火区 (严禁做空)"
+          ? `🟣 【反向对冲猎手雷达】${state.ticker} 围绕均价线 ($${curVwap.toFixed(2)}) 高位换手蓄势`
+          : (isShortFrozen
+            ? `🟡 【超跌负乖离修复蓄势】现价低于理论位 ${spreadPct.toFixed(1)}% (已触发 ${freezeThreshold}% 禁空保护 · 严禁低位追空)`
             : "⚪ 【常规Gamma波动状态】遵循标准周期均值回归通道"),
         bg: cfg.isInverse
           ? "bg-indigo-50 border-indigo-300 text-indigo-950"
-          : (isExtremeBarrierBreached
-            ? "bg-purple-50 border-purple-400 text-purple-950"
+          : (isShortFrozen
+            ? "bg-amber-50 border-amber-300 text-amber-950"
             : "bg-slate-50 border-slate-200 text-slate-700"),
-        btnCls: cfg.isInverse ? "bg-indigo-600" : (isExtremeBarrierBreached ? "bg-purple-700" : "bg-slate-600"),
-        btnText: cfg.isInverse ? "右侧顺势做多" : (isExtremeBarrierBreached ? "超限弹射中" : "波动正常"),
+        btnCls: cfg.isInverse ? "bg-indigo-600" : (isShortFrozen ? "bg-amber-600" : "bg-slate-600"),
+        btnText: cfg.isInverse ? "逢低回踩承接" : (isShortFrozen ? "博弈日内反抽" : "波动正常"),
         desc: cfg.isInverse
-          ? `随正股回落，${state.ticker} 探明底部并站上 VWAP ($${curVwap.toFixed(2)})，回踩均价线分批做多，第一目标 11/18 ($${getTheoAt(cfg.theoCurve,'11/18').toFixed(2)})！`
-          : (isExtremeBarrierBreached
-            ? "负乖离跌破 -35% 触发橡皮筋效应，一旦跨过近端行权价将引发做市商被动扫货轧空！"
-            : `当前未处于极端负乖离态 | 3x单边正向复利极限上限参考: $${turboCeiling.toFixed(2)}`)
+          ? `${state.ticker} 现价 $${curP.toFixed(2)}，正股处于负乖离超跌反抽窗口，切勿在正股极度超卖时高位追涨 ${state.ticker}，耐心等回踩 $${(curVwap*0.975).toFixed(2)} 附近低吸！`
+          : (isShortFrozen
+            ? `当前负乖离 (${spreadPct.toFixed(1)}%) 超过 ${freezeThreshold}% 阈值，空头获利盘回补将驱动日内向 VWAP ($${curVwap.toFixed(2)}) 及 $${(curP*(is3x?1.045:1.015)).toFixed(2)} 阻力带反抽，反抽到位后再布空！`
+            : `当前乖离率 (${spreadPct.toFixed(1)}%) 处于正常区间 | 理论上限参考: $${turboCeiling.toFixed(2)}`)
       };
 
       if (isVwapBrokenRightSide) {
         const pairInverse = state.ticker === "TQQQ" || state.ticker === "QQQ" ? "SQQQ" : "SOXS";
         gammaStatus = {
           level: "breakdown",
-          badge: "🔴 【周期主跌阶段三】：跌破分时VWAP · 右侧做空/持有对冲确认",
+          badge: "🔴 【周期主跌阶段三】：负乖离已收敛且跌破分时VWAP · 右侧做空/对冲确认",
           bg: "bg-rose-50 border-rose-400 text-rose-900",
           btnCls: "bg-rose-600",
           btnText: "右侧顺势做空",
-          desc: `现价跌穿真实分时均价线 ($${curVwap.toFixed(2)})，做市商负Gamma顺势助跌，右侧做空/买入 ${pairInverse} 确定性信号已触发！`
+          desc: `现价 ($${curP.toFixed(2)}) 跌穿真实分时均价线 ($${curVwap.toFixed(2)}) 且负乖离处于安全阈值内，右侧做空/对冲 ${pairInverse} 信号激活！`
         };
       }
 
-      const isAlreadyAtTheoCeiling = !cfg.isInverse && (lockedHigh >= cfg.theoToday * 0.95 || curP > cfg.regClose * 0.95);
-      const topLow = Math.min(lockedHigh * 0.96, Math.max(curP * 0.995, cfg.theoToday));
-      const topHigh = Math.max(lockedHigh, curP * 1.006, cfg.theoToday);
-
       const baseNowDate = timeInfo ? timeInfo.now : new Date();
       const dtNode1 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 2)  : "11/18";
-      const dtNode2 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 10) : "11/26";
-      const dtNode3 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 24) : "12/10";
-      const dtNode4 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 42) : "12/28";
+      const dtNode2 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 9)  : "11/26";
+      const dtNode3 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 23) : "12/10";
+      const dtNode4 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 41) : "12/28";
 
       const sysTrack = {
         pivot: curP * cfg.mmRadarRatios.pivot,
@@ -583,8 +572,8 @@
         dt2: dtNode2, p1126: calcSysRev("11/26"),
         dt3: dtNode3, p1210: calcSysRev("12/10"),
         dt4: dtNode4, p1228: calcSysRev("12/28"),
-        sweepLow: isAlreadyAtTheoCeiling ? topLow : curP * cfg.mmRadarRatios.sweep[0],
-        sweepHigh: isAlreadyAtTheoCeiling ? topHigh : curP * cfg.mmRadarRatios.sweep[1]
+        sweepLow: curP * (is3x ? 1.032 : 1.012),
+        sweepHigh: curP * (is3x ? 1.058 : 1.022)
       };
 
       const dFactor = 1.0 - cfg.betaDecay;
@@ -596,10 +585,20 @@
         p1228: (getTheoAt(cfg.theoCurve, "12/28") * dFactor)
       };
 
+      // 动态生成与实时价格 100% 同步的诊断文案，彻底消除写死旧价格的矛盾
+      const dynamicPhaseDesc = cfg.isInverse
+        ? `【反向镜像·高位换手蓄势相】${state.ticker} 现价 $${curP.toFixed(2)} (分时 VWAP $${curVwap.toFixed(2)})，随正股超跌反抽进行回踩蓄势，波段上看 ${sysTrack.dt1} ($${sysTrack.p1118.toFixed(2)}) 与 ${sysTrack.dt2} 峰值 ($${sysTrack.p1126.toFixed(2)})`
+        : `【周期系统逻辑理论 · ${isShortFrozen ? '超跌负乖离反抽修复相' : '跌破VWAP均值回归相'}】${state.ticker} 实时现价 $${curP.toFixed(2)} (分时 VWAP $${curVwap.toFixed(2)})，较今日理论位 ($${activeTheoNow.toFixed(2)}) 乖离 ${spreadPct>=0?'+'+spreadPct.toFixed(1)+'%':spreadPct.toFixed(1)+'%'}，日内围绕均线震荡修复后指向 ${sysTrack.dt1} ($${sysTrack.p1118.toFixed(2)}) 与 ${sysTrack.dt2} 黄金坑 ($${sysTrack.p1126.toFixed(2)})`;
+
+      const dynamicIronRule = cfg.isInverse
+        ? `周期系统逻辑理论镜像铁律：${state.ticker} 现价 $${curP.toFixed(2)}，正股已进入负乖离禁空保护区，严禁高位追涨 ${state.ticker}，耐心等回踩 $${(curP*0.965).toFixed(2)}~$${(curVwap*0.985).toFixed(2)} 企稳再行低吸，${sysTrack.dt2} ($${sysTrack.p1126.toFixed(2)}) 必须100%清仓止盈！`
+        : `周期系统逻辑理论铁律：${state.ticker} 现价 $${curP.toFixed(2)} ${isShortFrozen ? `已触发负乖离保护 (${spreadPct.toFixed(1)}% ≤ ${freezeThreshold}%)，严禁低位追空！日内先看反抽测试 VWAP ($${curVwap.toFixed(2)}) 及 $${sysTrack.sweepLow.toFixed(2)}~$${sysTrack.sweepHigh.toFixed(2)} 阻力带，反抽受阻再布空下看 ${sysTrack.dt2} 黄金坑 ($${sysTrack.p1126.toFixed(2)})！` : `已跌破分时均价线 ($${curVwap.toFixed(2)})，反抽 $${curVwap.toFixed(2)}~$${sysTrack.sweepLow.toFixed(2)} 不过即为右侧做空点，下看 ${sysTrack.dt2} 黄金坑 ($${sysTrack.p1126.toFixed(2)})！`}`;
+
       return {
-        cfg, curP, activeTheoNow, spreadPct,
+        cfg, curP, activeTheoNow, spreadPct, freezeThreshold,
         isExtremeBarrierBreached, isShortFrozen, isReversionPhase, phaseTitle,
-        gammaStatus, turboCeiling, sysTrack, lockedTrack, calcSysRev, is3x, lockedHigh, curVwap
+        gammaStatus, turboCeiling, sysTrack, lockedTrack, calcSysRev, is3x, lockedHigh, curVwap,
+        dynamicPhaseDesc, dynamicIronRule
       };
     }
 
@@ -617,7 +616,7 @@
       }));
       pastSlice.push({
         slotIdx: 4,
-        label: timeInfo ? timeInfo.realMmDd : "11/16",
+        label: timeInfo ? timeInfo.realMmDd : "11/17",
         subLabel: "T+0(今日)",
         p: curP,
         isPast: true
@@ -668,7 +667,7 @@
             ? `🟡 VWAP反压主导：反抽 $${Math.min(curVwap, dailyCeiling).toFixed(2)} 受阻`
             : (step === 3 ? "🎯 周期中继窗：回撤空单减半锁利" : "🔴 均值回归主导：阶梯向下寻底");
         } else if (cfg.isInverse) {
-          microDriverTag = step === 3 ? "💰 11/18中继兑现：多单分批止盈50%" : "🟣 镜像买盘主导：回踩底线低吸";
+          microDriverTag = step === 3 ? "💰 周期中继兑现：多单分批止盈50%" : "🟣 镜像买盘主导：回踩底线低吸";
         } else {
           microDriverTag = "⚡ 走廊主导：高抛天花板低吸底线";
         }
@@ -804,7 +803,7 @@
       const histPts = cfg.hist.filter(d => dayOf(d[0]) < cutDay);
       histPts.push([state.anchorDt, curP]);
 
-      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
+      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
         .filter(dt => dayOf(dt) > cutDay);
 
       const futSys = [[state.anchorDt, curP], ...futDates.map(dt => [dt, calcSysRev(dt)])];
@@ -934,7 +933,7 @@
         <rect x="${xOf("11/23")}" y="${PAD_T}" width="${xOf("11/28")-xOf("11/23")}" height="${H1-PAD_T-PAD_B}" fill="#DBEAFE" opacity="0.65"/>
         <rect x="${xOf("12/04")}" y="${PAD_T}" width="${xOf("12/11")-xOf("12/04")}" height="${H1-PAD_T-PAD_B}" fill="#FEF9C3" opacity="0.65"/>
 
-        <rect x="${xOf("11/05")}" y="${y1Of(cfg.gammaCorridor[1])}" width="${xOf("11/16") - xOf("11/05")}" height="${Math.max(6, y1Of(cfg.gammaCorridor[0]) - y1Of(cfg.gammaCorridor[1]))}" fill="#A855F7" opacity="0.14" stroke="#A855F7" stroke-dasharray="3 3"/>
+        <rect x="${xOf("11/05")}" y="${y1Of(cfg.gammaCorridor[1])}" width="${xOf("11/17") - xOf("11/05")}" height="${Math.max(6, y1Of(cfg.gammaCorridor[0]) - y1Of(cfg.gammaCorridor[1]))}" fill="#A855F7" opacity="0.14" stroke="#A855F7" stroke-dasharray="3 3"/>
         <g transform="translate(${PAD_L + 10}, ${PAD_T + 8})">
           <rect x="0" y="0" width="380" height="19" rx="4" fill="#FAF5FF" stroke="#C084FC" stroke-width="1" opacity="0.95"/>
           <text x="8" y="13" font-size="10" font-weight="bold" fill="#7E22CE" class="font-mono">⚡ 紫色区: 负Gamma逼空走廊 ($${cfg.gammaCorridor[0]}~$${cfg.gammaCorridor[1]})</text>
@@ -1122,6 +1121,7 @@
       return { mCfg, P0, horizonYrs, startYear, curQuarter, nextReanchorYear, nextReanchorMonth, cardNodes, svgHtml };
     }
 
+    // 修复 Bug 1 & Bug 3：彻底重构日内分时锚定与母子同频比例区间，杜绝 08:00 价格悬崖和 01:00 攻克VWAP倒挂
     function computeIntraday(m, timeInfo) {
       const { cfg, curP, sysTrack, is3x, lockedHigh, isShortFrozen, curVwap } = m;
       const nowIdx = timeInfo.nowIdx;
@@ -1129,82 +1129,81 @@
       const openIdx = 7;
       const closeIdx = 14;
 
-      let vwap = curVwap;
-      const isBlowOffTop = !cfg.isInverse && !isShortFrozen && (lockedHigh >= cfg.theoToday * 0.95);
-      const isAlreadyBelowVwap = isBlowOffTop && (curP < vwap);
+      const vwap = curVwap;
+      const ampUnit = is3x ? 1.0 : 0.35; // 1x母体振幅严格按 3x 杠杆的 35% 比例缩放
 
-      let majorSupLow, majorSupHigh, demandLow, demandHigh, microRes, midTarget, stopHuntExtreme;
-      if (isBlowOffTop) {
-        majorSupHigh = Math.max(lockedHigh, cfg.regClose, cfg.theoToday, vwap * (is3x ? 1.035 : 1.008));
-        majorSupLow = Math.max(vwap * (is3x ? 1.012 : 1.003), Math.min(cfg.regClose, cfg.theoToday, majorSupHigh * (is3x ? 0.965 : 0.990)));
+      const majorSupLow  = parseFloat((Math.max(curP * (1 + 0.035 * ampUnit), vwap * (1 + 0.020 * ampUnit))).toFixed(2));
+      const majorSupHigh = parseFloat((Math.max(curP * (1 + 0.058 * ampUnit), vwap * (1 + 0.038 * ampUnit))).toFixed(2));
+      const demandLow    = parseFloat((Math.min(curP * (1 - 0.025 * ampUnit), vwap * (1 - 0.032 * ampUnit))).toFixed(2));
+      const demandHigh   = parseFloat((Math.min(curP * (1 - 0.012 * ampUnit), vwap * (1 - 0.018 * ampUnit))).toFixed(2));
+      const microRes     = parseFloat((Math.max(curP * (1 + 0.015 * ampUnit), vwap * (1 + 0.004 * ampUnit))).toFixed(2));
+      const midTarget    = parseFloat((Math.max(vwap * (1 + 0.014 * ampUnit), (vwap + majorSupLow) * 0.5)).toFixed(2));
+      const stopHuntExtreme = parseFloat((demandLow * (1 - 0.015 * ampUnit)).toFixed(2));
 
-        const rawTargetLow = Math.min(cfg.intraLow, sysTrack.p1118, curP * (is3x ? 0.925 : 0.978));
-        const rawTargetHigh = Math.min(curP * (is3x ? 0.968 : 0.990), Math.max(rawTargetLow * (is3x ? 1.035 : 1.006), cfg.intraLow));
-        demandLow = rawTargetLow;
-        demandHigh = Math.max(rawTargetLow + (is3x ? 0.8 : 1.5), rawTargetHigh);
-        stopHuntExtreme = Math.min(sysTrack.p1118, demandLow * (is3x ? 0.975 : 0.992));
-
-        if (isAlreadyBelowVwap) {
-          microRes = curP + (vwap - curP) * 0.85;
-          midTarget = (curP + demandHigh) * 0.5;
-        } else {
-          microRes = curP >= majorSupLow ? Math.min(majorSupHigh, curP * 1.012) : curP + (majorSupLow - curP) * 0.70;
-          midTarget = vwap * (is3x ? 0.985 : 0.996);
-        }
-      } else if (cfg.isInverse) {
-        majorSupLow = Math.max(cfg.regClose * 1.05, curP * 1.045);
-        majorSupHigh = Math.max(cfg.regClose * 1.10, curP * 1.085);
-        demandLow = Math.min(cfg.intraLow, curP * 0.965);
-        demandHigh = Math.min(vwap * 0.992, curP * 0.985);
-        microRes = Math.max(vwap, curP * 1.015);
-        midTarget = (curP + majorSupLow) * 0.5;
-        stopHuntExtreme = demandLow * 0.975;
-      } else {
-        majorSupLow = Math.max(curP * 1.035, vwap * 1.025);
-        majorSupHigh = Math.max(curP * 1.065, vwap * 1.045);
-        demandLow = Math.min(curP * 0.975, vwap * 0.980);
-        demandHigh = Math.min(curP * 0.988, vwap * 0.990);
-        microRes = curP * 1.015;
-        midTarget = vwap * 1.015;
-        stopHuntExtreme = demandLow * 0.985;
-      }
-
-      const rawMorning = [...cfg.lockedMorningPts];
-      const scaleShift = curP / (rawMorning[Math.min(3, rawMorning.length - 1)] || curP);
-      const baseMorning = rawMorning.map(v => (scaleShift < 0.82 || scaleShift > 1.22) ? parseFloat((v * scaleShift).toFixed(2)) : v);
-
+      // 修复亚洲夜盘起始区域 (08:00~now) 价格锚定：移除 0.82~1.22 死区，直接按当日真实夜盘开盘锚点(curVwap ~ curP)平滑生成早盘轨迹
+      const sessionStartAnchor = parseFloat(((vwap * 0.65 + curP * 0.35)).toFixed(2));
       const pastPts = [];
-      for (let i = 0; i <= Math.floor(nowFloatIdx); i++) {
-        if (Math.abs(nowFloatIdx - i) < 0.04) break;
-        const fallbackVal = i < baseMorning.length ? baseMorning[i] : parseFloat((baseMorning[baseMorning.length - 1] * 0.4 + curP * 0.6).toFixed(2));
-        pastPts.push([i, fallbackVal]);
+      const maxPastSlot = Math.floor(nowFloatIdx);
+      for (let i = 0; i <= maxPastSlot; i++) {
+        if (Math.abs(nowFloatIdx - i) < 0.05) break;
+        const progress = maxPastSlot > 0 ? (i / Math.max(1, nowFloatIdx)) : 0;
+        const microWave = Math.sin(i * 1.7 + (cfg.isInverse ? 2.1 : 0.4)) * curP * (is3x ? 0.0045 : 0.0018);
+        const interpVal = sessionStartAnchor + (curP - sessionStartAnchor) * progress + (i === 0 ? 0 : microWave);
+        pastPts.push([i, parseFloat(interpVal.toFixed(2))]);
       }
       pastPts.push([nowFloatIdx, curP]);
 
       const pathA = [[nowFloatIdx, curP]], pathB = [[nowFloatIdx, curP]], pathC = [[nowFloatIdx, curP]];
       const tmplA = [
-        [7, demandHigh * 0.998], [8, (demandLow + demandHigh) * 0.5], [9, vwap * 1.002],
-        [10, midTarget], [11, (midTarget + majorSupLow) * 0.5], [12, majorSupLow * 0.998],
-        [13, (majorSupLow + majorSupHigh) * 0.5], [14, majorSupLow * 1.004], [15, majorSupLow], [16, majorSupLow * 1.002]
+        [3, curP * (1 + 0.003 * ampUnit)],
+        [5, (curP + demandHigh) * 0.5],
+        [7, demandHigh * 0.999],
+        [8, parseFloat(((demandLow + demandHigh) * 0.5).toFixed(2))],
+        [9, parseFloat((vwap * 1.001).toFixed(2))],
+        [10, midTarget],
+        [11, parseFloat(((midTarget + majorSupLow) * 0.5).toFixed(2))],
+        [12, majorSupLow],
+        [13, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
+        [14, parseFloat((majorSupLow * (1 + 0.004 * ampUnit)).toFixed(2))],
+        [15, majorSupLow],
+        [16, parseFloat((majorSupLow * (1 + 0.002 * ampUnit)).toFixed(2))]
       ];
       const tmplB = [
-        [7, microRes * 1.004], [8, majorSupLow * 0.994], [9, majorSupLow * 1.002],
-        [10, majorSupHigh * 0.994], [11, majorSupHigh * 1.002], [12, majorSupHigh * 1.006],
-        [13, majorSupHigh * 1.012], [14, majorSupHigh * 1.008], [15, majorSupHigh * 1.010], [16, majorSupHigh * 1.012]
+        [3, curP * (1 + 0.006 * ampUnit)],
+        [5, vwap],
+        [7, microRes],
+        [8, majorSupLow],
+        [9, parseFloat(((majorSupLow + majorSupHigh) * 0.5).toFixed(2))],
+        [10, majorSupHigh],
+        [11, parseFloat((majorSupHigh * (1 + 0.004 * ampUnit)).toFixed(2))],
+        [12, parseFloat((majorSupHigh * (1 + 0.008 * ampUnit)).toFixed(2))],
+        [13, parseFloat((majorSupHigh * (1 + 0.012 * ampUnit)).toFixed(2))],
+        [14, majorSupHigh],
+        [15, majorSupHigh],
+        [16, majorSupHigh]
       ];
       const tmplC = [
-        [7, demandLow * 0.992], [8, stopHuntExtreme], [9, demandLow * 1.002],
-        [10, vwap * 0.998], [11, vwap * 1.004], [12, vwap * 1.010], [13, vwap * 1.015],
-        [14, vwap * 1.012], [15, vwap * 1.010], [16, vwap * 1.012]
+        [3, curP * (1 - 0.004 * ampUnit)],
+        [5, demandHigh],
+        [7, demandLow],
+        [8, stopHuntExtreme],
+        [9, demandLow],
+        [10, vwap],
+        [11, midTarget],
+        [12, midTarget],
+        [13, majorSupLow],
+        [14, midTarget],
+        [15, midTarget],
+        [16, midTarget]
       ];
 
-      pathA.push(...tmplA.filter(d => d[0] > nowFloatIdx + 0.08));
-      pathB.push(...tmplB.filter(d => d[0] > nowFloatIdx + 0.08));
-      pathC.push(...tmplC.filter(d => d[0] > nowFloatIdx + 0.08));
+      pathA.push(...tmplA.filter(d => d[0] > nowFloatIdx + 0.12));
+      pathB.push(...tmplB.filter(d => d[0] > nowFloatIdx + 0.12));
+      pathC.push(...tmplC.filter(d => d[0] > nowFloatIdx + 0.12));
 
       return {
         nowIdx, nowFloatIdx, bjtHM: timeInfo.bjtHM, estHM: timeInfo.estHM,
-        openIdx, closeIdx, isBlowOffTop, isAlreadyBelowVwap, isShortFrozen,
+        openIdx, closeIdx, isShortFrozen,
         vwap, demandLow, demandHigh, microRes, midTarget, majorSupLow, majorSupHigh, stopHuntExtreme,
         pastPts, pathA, pathB, pathC
       };
@@ -1233,6 +1232,13 @@
                  <text x="${PAD_L-8}" y="${py+4}" text-anchor="end" font-size="11" fill="#475569" class="font-mono font-semibold">$${pVal.toFixed(2)}</text>`;
       });
 
+      const nowX = xOf(intra.nowFloatIdx);
+      const nowY = yOf(m.curP);
+      const nowBubbleY = nowY > PAD_T + plotH * 0.58 ? (nowY - 32) : (nowY + 32);
+      const nowBubbleX = Math.min(W - PAD_R - 82, Math.max(PAD_L + 82, nowX));
+
+      // 修复 Bug 4：当 NOW 气泡位于左侧亚盘/盘前区时，将 VWAP/阻力/承接标签置于欧美盘前空白带或自动避让 NOW 气泡 Y 轴
+      const zoneLabelX = intra.nowFloatIdx < 5.2 ? (xOf(3) + 14) : (PAD_L + 12);
       const rawZoneLabels = [
         {
           id: "sup",
@@ -1253,19 +1259,18 @@
           fill: "#6EE7B7", stroke: "#10B981"
         }
       ];
-      const safeZones = resolveYCollisions(rawZoneLabels, 22, PAD_T + 14, H - PAD_B - 14);
-      const zoneLabelX = PAD_L + 12;
+      const safeZones = resolveYCollisions(rawZoneLabels, 24, PAD_T + 14, H - PAD_B - 14);
 
       const zoneBadgesHtml = safeZones.map(z => `
         <g transform="translate(${zoneLabelX}, ${z.y})">
-          <rect x="0" y="-10" width="260" height="19" rx="4" fill="#0F172A" stroke="${z.stroke}" stroke-width="1" opacity="0.88"/>
+          <rect x="0" y="-10" width="236" height="19" rx="4" fill="#0F172A" stroke="${z.stroke}" stroke-width="1" opacity="0.90"/>
           <text x="8" y="3" text-anchor="start" font-size="10" font-weight="bold" fill="${z.fill}" class="font-mono">${z.text}</text>
         </g>
       `).join("");
 
       const activePath = state.intraScenario === "A" ? intra.pathA : (state.intraScenario === "B" ? intra.pathB : intra.pathC);
       const bubbleSpecs = [
-        { idx: 8,  label: "23:15 盘口右脚", color: "#34D399", dy: 30 },
+        { idx: 8,  label: "23:15 盘口右脚", color: "#34D399", dy: 28 },
         { idx: 10, label: "01:00 攻克VWAP", color: "#FBBF24", dy: -28 },
         { idx: 13, label: "04:00 尾盘目标", color: "#38BDF8", dy: -28 }
       ];
@@ -1284,18 +1289,13 @@
           </g>`;
       }).join("");
 
-      const nowX = xOf(intra.nowFloatIdx);
-      const nowY = yOf(m.curP);
-      const nowBubbleY = nowY > PAD_T + plotH * 0.62 ? (nowY - 28) : (nowY + 28);
-      const nowBubbleX = Math.min(W - PAD_R - 82, Math.max(PAD_L + 82, nowX));
-
       return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto select-none">
         <rect x="${PAD_L}" y="6" width="${xOf(3)-PAD_L}" height="24" rx="4" fill="#0F172A"/>
-        <text x="${(PAD_L+xOf(3))*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#38BDF8" class="font-mono">🌅 亚盘夜盘区</text>
+        <text x="${(PAD_L+xOf(3))*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#38BDF8" class="font-mono">🌅 亚盘夜盘区 (08:00-16:00)</text>
         <rect x="${xOf(3)+2}" y="6" width="${xOf(intra.openIdx)-xOf(3)-4}" height="24" rx="4" fill="#1E293B"/>
-        <text x="${(xOf(3)+xOf(intra.openIdx))*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#CBD5E1" class="font-mono">🌍 欧美盘前区</text>
+        <text x="${(xOf(3)+xOf(intra.openIdx))*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#CBD5E1" class="font-mono">🌍 欧美盘前区 (16:00-22:30)</text>
         <rect x="${xOf(intra.openIdx)+2}" y="6" width="${xOf(intra.closeIdx)-xOf(intra.openIdx)-4}" height="24" rx="4" fill="#312E81"/>
-        <text x="${(xOf(intra.openIdx)+xOf(intra.closeIdx))*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#A5B4FC" class="font-mono">🇺🇸 美股正盘决战区</text>
+        <text x="${(xOf(intra.openIdx)+xOf(intra.closeIdx))*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#A5B4FC" class="font-mono">🇺🇸 美股正盘决战区 (22:30-05:00)</text>
         <rect x="${xOf(intra.closeIdx)+2}" y="6" width="${W-PAD_R-xOf(intra.closeIdx)-2}" height="24" rx="4" fill="#0F172A"/>
         <text x="${(xOf(intra.closeIdx)+W-PAD_R)*0.5}" y="22" text-anchor="middle" font-size="10" font-weight="bold" fill="#64748B" class="font-mono">🌙 盘后</text>
 
@@ -1349,7 +1349,7 @@
       const intra = computeIntraday(m, timeInfo);
       const weekly5d = computeAndBuildWeekly5D(m, timeInfo);
       const compass = computeAndBuildCompass(m, timeInfo);
-      const { cfg, curP, activeTheoNow, spreadPct, isExtremeBarrierBreached, isShortFrozen, isReversionPhase, phaseTitle, gammaStatus, sysTrack, lockedTrack, is3x, lockedHigh } = m;
+      const { cfg, curP, activeTheoNow, spreadPct, freezeThreshold, isExtremeBarrierBreached, isShortFrozen, isReversionPhase, phaseTitle, gammaStatus, sysTrack, lockedTrack, is3x, lockedHigh, dynamicPhaseDesc, dynamicIronRule } = m;
 
       const elLiveBtn = document.getElementById("liveBtn");
       if (elLiveBtn) {
@@ -1398,10 +1398,10 @@
           <div class="p-3 rounded-2xl border ${isExtremeBarrierBreached ? 'bg-rose-50 border-rose-400 text-rose-900 animate-pulse' : (isShortFrozen ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-emerald-50 border-emerald-300 text-emerald-900')} flex items-center justify-between shadow-sm">
             <div>
               <span class="font-extrabold text-[13px]">
-                ${cfg.isInverse ? '🛡️ 【反向对冲标尺】空头ETF右侧主升通道开启' : (isExtremeBarrierBreached ? '🚨 【极端负乖离红线】触发 (乖离率 ≤ -35%)' : (isShortFrozen ? '⚠️ 【负乖离未收敛】禁空熔断保护激活中' : '🟢 【负乖离已收敛】对冲信号已解冻'))}
+                ${cfg.isInverse ? '🛡️ 【反向对冲标尺】随正股负乖离修复节奏逢低回踩承接' : (isExtremeBarrierBreached ? '🚨 【极端负乖离红线】触发' : (isShortFrozen ? `⚠️ 【负乖离未收敛 (${spreadPct.toFixed(1)}% ≤ ${freezeThreshold}%)】禁空熔断保护激活中` : '🟢 【负乖离已收敛】对冲信号已解冻'))}
               </span>
               <div class="text-[11px] mt-0.5 opacity-90">
-                ${isShortFrozen ? '铁律：负乖离收敛至 -10% 前，严禁左侧猜顶，做市商负Gamma随时引爆暴力轧空！' : '当前负乖离已修复，允许执行右侧逢高做空/买反向ETF'}
+                ${isShortFrozen ? `铁律：${is3x?'3x杠杆':'1x母体'}负乖离收敛至 ${freezeThreshold}% 以内前，严禁低位追空，先博弈向 VWAP ($${intra.vwap.toFixed(2)}) 的技术反抽！` : '当前负乖离处于安全阈值内，允许结合分时VWAP反压执行右侧逢高做空/对冲'}
               </div>
             </div>
             <span class="px-2.5 py-1 rounded-lg text-white font-bold ${isShortFrozen ? 'bg-rose-600' : 'bg-emerald-600'}">
@@ -1413,7 +1413,7 @@
             <div>
               <span class="font-extrabold text-[13px]">${phaseTitle}</span>
               <div class="text-[11px] mt-0.5 text-indigo-800">
-                ${isReversionPhase && !cfg.isInverse ? '当前上涨纯属对前期断崖超跌的报复性修复' : '负乖离已彻底归零，由周期母版波浪模型接管后续推演'}
+                ${isReversionPhase && !cfg.isInverse ? '当前母子标尺同步处于超跌修复阶段，日内反抽阻力带后再回归周期主跌浪' : '负乖离已收敛，由周期母版波浪模型接管后续推演'}
               </div>
             </div>
             <span class="px-2.5 py-1 rounded-lg text-white font-bold bg-indigo-600">
@@ -1427,8 +1427,8 @@
       if (elDiag) {
         elDiag.innerHTML = `
           <div class="bg-[#FFF1F2] border border-[#F43F5E] rounded-xl p-3.5 text-xs md:text-[13px] space-y-1.5 font-mono text-slate-800">
-            <div class="font-bold text-rose-700">● 当前相位诊断: ${cfg.phaseDesc}</div>
-            <div>● 实盘 vs 周期标尺: 最新现价 <b class="text-rose-600">$${curP.toFixed(2)}</b> (周五收盘 $${cfg.regClose.toFixed(2)} | 阶段极值 <b>$${lockedHigh.toFixed(2)}</b>) | 今日理论位 <b>$${activeTheoNow.toFixed(2)}</b> (乖离 <b class="text-rose-600">${spreadPct>=0?'+'+spreadPct.toFixed(1)+'%':spreadPct.toFixed(1)+'%'}</b>)</div>
+            <div class="font-bold text-rose-700">● 当前相位诊断: ${dynamicPhaseDesc}</div>
+            <div>● 实盘 vs 周期标尺: 最新现价 <b class="text-rose-600">$${curP.toFixed(2)}</b> (前收基准 $${cfg.regClose.toFixed(2)} | 真实VWAP <b>$${intra.vwap.toFixed(2)}</b>) | 今日理论位 <b>$${activeTheoNow.toFixed(2)}</b> (乖离 <b class="text-rose-600">${spreadPct>=0?'+'+spreadPct.toFixed(1)+'%':spreadPct.toFixed(1)+'%'}</b>)</div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
               <div class="p-2.5 rounded-lg bg-white border-2 border-blue-500">
                 <div class="font-bold text-blue-900">💎【周期系统逻辑理论：动态回归轨】</div>
@@ -1443,7 +1443,7 @@
                 </div>
               </div>
             </div>
-            <div class="pt-1 text-amber-900 font-bold">▸ 防御铁律: ${cfg.ironRule}</div>
+            <div class="pt-1 text-amber-900 font-bold">▸ 防御铁律: ${dynamicIronRule}</div>
           </div>
         `;
       }
@@ -1457,7 +1457,7 @@
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
                   <span class="px-2.5 py-0.5 text-xs font-bold rounded-md bg-indigo-600 text-white">第一层：LIVE 24H 日内分时雷达</span>
-                  <h2 class="text-base md:text-lg font-bold text-slate-900">${state.ticker} 24H 全链路推演图</h2>
+                  <h2 class="text-base md:text-lg font-bold text-slate-900">${state.ticker} 24H 全链路推演图 (母子同频共振已校准)</h2>
                 </div>
               </div>
               <div class="flex flex-wrap gap-2">
@@ -1475,23 +1475,23 @@
               <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
                 <div class="p-3.5 rounded-2xl bg-white border-l-4 border-l-slate-500 border border-slate-200">
                   <div class="flex justify-between text-slate-500 font-bold"><span>STEP 1 · 亚盘/盘前蓄势</span><span class="bg-slate-100 px-2 py-0.5 rounded">08:00-22:30</span></div>
-                  <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">站稳均线: $${intra.vwap.toFixed(2)}</div>
-                  <div class="text-[11px] text-slate-600 mt-1.5">低位换手确认底部支撑，等待正盘放量</div>
+                  <div class="text-slate-900 font-extrabold text-[15px] mt-1.5">分时均线: $${intra.vwap.toFixed(2)}</div>
+                  <div class="text-[11px] text-slate-600 mt-1.5">围绕 $${curP.toFixed(2)}~$${intra.vwap.toFixed(2)} 窄幅换手筑底，等待正盘放量</div>
                 </div>
                 <div class="p-3.5 rounded-2xl bg-emerald-50/80 border-l-4 border-l-emerald-600 border border-emerald-200">
                   <div class="flex justify-between text-emerald-800 font-bold"><span>STEP 2 · 开盘回踩右脚窗</span><span class="bg-emerald-100 px-2 py-0.5 rounded">22:30-23:15</span></div>
                   <div class="text-emerald-700 font-extrabold text-[15px] mt-1.5">低吸承接: $${intra.demandLow.toFixed(2)}~$${intra.demandHigh.toFixed(2)}</div>
-                  <div class="text-[11px] text-emerald-800 mt-1.5 font-semibold">🎯 开盘回踩右脚不破，为右侧建仓点</div>
+                  <div class="text-[11px] text-emerald-800 mt-1.5 font-semibold">🎯 开盘回踩右脚不破，为日内博弈反抽建仓点</div>
                 </div>
                 <div class="p-3.5 rounded-2xl bg-indigo-50/80 border-l-4 border-l-indigo-600 border border-indigo-200">
-                  <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 3 · 盘中主升推进段</span><span class="bg-indigo-100 px-2 py-0.5 rounded">23:15-02:30</span></div>
-                  <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">主升中枢: $${intra.midTarget.toFixed(2)}</div>
-                  <div class="text-[11px] text-indigo-800 mt-1.5 font-semibold">🚀 依托分时VWAP向上推升</div>
+                  <div class="flex justify-between text-indigo-900 font-bold"><span>STEP 3 · 盘中攻克VWAP段</span><span class="bg-indigo-100 px-2 py-0.5 rounded">23:15-02:30</span></div>
+                  <div class="text-indigo-700 font-extrabold text-[15px] mt-1.5">反攻中枢: $${intra.midTarget.toFixed(2)}</div>
+                  <div class="text-[11px] text-indigo-800 mt-1.5 font-semibold">🚀 放量站上VWAP($${intra.vwap.toFixed(2)})，向 $${intra.midTarget.toFixed(2)} 推进</div>
                 </div>
                 <div class="p-3.5 rounded-2xl bg-rose-50/80 border-l-4 border-l-rose-600 border border-rose-200">
-                  <div class="flex justify-between text-rose-900 font-bold"><span>STEP 4 · 尾盘冲高目标窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">02:30-05:00</span></div>
+                  <div class="flex justify-between text-rose-900 font-bold"><span>STEP 4 · 尾盘反抽目标窗</span><span class="bg-rose-100 px-2 py-0.5 rounded">02:30-05:00</span></div>
                   <div class="text-rose-700 font-extrabold text-[15px] mt-1.5">冲击目标: $${intra.majorSupLow.toFixed(2)}~$${intra.majorSupHigh.toFixed(2)}</div>
-                  <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">💰 尾盘冲击上方目标带，看 ${sysTrack.dt1} 节点</div>
+                  <div class="text-[11px] text-rose-800 mt-1.5 font-semibold">💰 尾盘冲击阻力带分批止盈，波段关注 ${sysTrack.dt1} 节点</div>
                 </div>
               </div>
             </div>
@@ -1564,11 +1564,11 @@
                 <div class="text-purple-700 font-extrabold text-sm mt-1">系统轨 $${sysTrack.p1118.toFixed(2)}</div>
               </div>
               <div class="p-3 rounded-xl bg-blue-50/90 border-l-4 border-l-blue-600 border border-blue-300">
-                <div class="text-blue-900 font-bold">${sysTrack.dt2} 黄金坑</div>
+                <div class="text-blue-900 font-bold">${sysTrack.dt2} ${cfg.isInverse?'止盈波峰':'黄金坑'}</div>
                 <div class="text-blue-700 font-extrabold text-sm mt-1">系统轨 $${sysTrack.p1126.toFixed(2)}</div>
               </div>
               <div class="p-3 rounded-xl bg-emerald-50/90 border-l-4 border-l-emerald-600 border border-emerald-200">
-                <div class="text-emerald-900 font-bold">${sysTrack.dt3} 跨月峰</div>
+                <div class="text-emerald-900 font-bold">${sysTrack.dt3} 跨月节点</div>
                 <div class="text-emerald-700 font-extrabold text-sm mt-1">系统轨 $${sysTrack.p1210.toFixed(2)}</div>
               </div>
             </div>
@@ -1716,7 +1716,7 @@
     window.toggleLive = (forceTrue) => {
       state.isLive = forceTrue ? true : !state.isLive;
       state.customBaseTheo = null;
-      state.anchorDt = "11/16";
+      state.anchorDt = "11/17";
       updateDynamicSections();
     };
     window.setView = (v) => { state.viewMode = v; renderFullShell(); };
@@ -1726,14 +1726,14 @@
     window.setIntra = (s) => { state.intraScenario = s; updateDynamicSections(); };
     window.toggleClean = () => { state.cleanShot = !state.cleanShot; renderFullShell(); };
     window.logout = () => { try { localStorage.removeItem(AUTH_KEY); } catch(e){} state.isAuthed = false; renderFullShell(); };
-    window.selectTicker = (sym) => { state.ticker = sym; state.customBaseTheo = null; state.anchorDt = "11/16"; renderFullShell(); };
+    window.selectTicker = (sym) => { state.ticker = sym; state.customBaseTheo = null; state.anchorDt = "11/17"; renderFullShell(); };
     window.applyPreset = (idx) => {
       const p = RAW_DB[state.ticker].presets[idx];
       if (!p) return;
       state.isLive = false;
       state.prices[state.ticker] = p.val;
       state.customBaseTheo = p.baseTheo;
-      state.anchorDt = p.anchorDt || "11/16";
+      state.anchorDt = p.anchorDt || "11/17";
       const slider = document.getElementById("priceSlider");
       if (slider) slider.value = p.val;
       updateDynamicSections();
@@ -1741,13 +1741,12 @@
     window.copyReport = () => {
       const timeInfo = getRealTimeSlotInfo();
       const m = computeAll(timeInfo);
-      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V6.0 实盘战报】**\n● 现价 $${m.curP.toFixed(2)} | VWAP $${m.curVwap.toFixed(2)}`;
+      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V6.0 实盘战报】**\n● 现价 $${m.curP.toFixed(2)} | VWAP $${m.curVwap.toFixed(2)} | 乖离率 ${m.spreadPct.toFixed(1)}%`;
       navigator.clipboard.writeText(text);
       state.copied = true; updateDynamicSections();
       setTimeout(() => { state.copied = false; updateDynamicSections(); }, 2000);
     };
 
-    // 修复：亚盘、盘前、正盘多时段智能抓价，完美解决 SOXX 与 SOXL 联动不同步问题
     async function syncQuotes() {
       if (!state.isAuthed || !state.isLive) return;
       try {
@@ -1769,21 +1768,25 @@
                 let latest = meta.regularMarketPrice;
                 const bjtH = new Date().getUTCHours() + 8;
                 const normH = bjtH >= 24 ? bjtH - 24 : bjtH;
-                // 非正盘时段（亚盘/盘前/盘后）优先提取实时 preMarketPrice / postMarketPrice
                 if (normH >= 8 && normH < 22) {
                   if (meta.preMarketPrice && meta.preMarketPrice > 0) latest = meta.preMarketPrice;
                   else if (meta.postMarketPrice && meta.postMarketPrice > 0) latest = meta.postMarketPrice;
                 } else if (normH >= 5 && normH < 8) {
                   if (meta.postMarketPrice && meta.postMarketPrice > 0) latest = meta.postMarketPrice;
                 }
-                if (!latest || isNaN(latest)) latest = RAW_DB[sym].regClose;
+                if (!latest || isNaN(latest)) latest = RAW_DB[sym].postClose;
 
-                let maxH = meta.regularMarketDayHigh || RAW_DB[sym].intraHigh;
-                let minL = meta.regularMarketDayLow || RAW_DB[sym].intraLow;
+                if (meta.regularMarketPrice && meta.regularMarketPrice > 0) {
+                  RAW_DB[sym].regClose = parseFloat(meta.regularMarketPrice.toFixed(2));
+                }
+
+                let maxH = meta.regularMarketDayHigh || latest * 1.02;
+                let minL = meta.regularMarketDayLow || latest * 0.98;
                 let sumPV = 0, sumV = 0;
 
                 if (q && Array.isArray(q.close)) {
-                  for (let k = 0; k < q.close.length; k++) {
+                  const startIdx = Math.max(0, q.close.length - 36);
+                  for (let k = startIdx; k < q.close.length; k++) {
                     const c = q.close[k], h = q.high?.[k], l = q.low?.[k], v = q.volume?.[k] || 0;
                     if (c !== null && c > 0) {
                       latest = c;
@@ -1800,10 +1803,11 @@
                     if (slider) slider.value = state.prices[sym];
                   }
                 }
+                const calcVwap = sumV > 0 ? parseFloat((sumPV / sumV).toFixed(2)) : parseFloat((latest * (RAW_DB[sym].isInverse ? 0.992 : 1.008)).toFixed(2));
                 state.realIntraStats[sym] = {
                   high: parseFloat(maxH.toFixed(2)),
                   low: parseFloat(minL.toFixed(2)),
-                  vwap: sumV > 0 ? parseFloat((sumPV / sumV).toFixed(2)) : parseFloat((latest * (RAW_DB[sym].isInverse ? 0.992 : 1.008)).toFixed(2))
+                  vwap: Math.abs(calcVwap - latest) / latest < 0.035 ? calcVwap : parseFloat((latest * (RAW_DB[sym].isInverse ? 0.992 : 1.008)).toFixed(2))
                 };
                 break;
               }

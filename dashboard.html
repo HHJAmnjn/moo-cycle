@@ -207,7 +207,6 @@
       }
     };
 
-    // 已严格对齐母子标尺 (SOXX 与 SOXL、QQQ 与 TQQQ 理论位及乖离率 1:3 同频共振)
     const RAW_DB = {
       SOXL: {
         name: "3倍做多半导体ETF (高危杠杆)", isInverse: false, motherSym: "SOXX",
@@ -399,13 +398,15 @@
     const state = {
       isAuthed: false,
       pinError: false,
+      dataSource: "opend",   // 默认优先本地 Moomoo OpenD ("opend" | "cloud")
+      activeChannel: "opend", // 实际生效通道状态
       ticker: "SOXL",
       prices: { SOXL: 48.53, SOXS: 59.43, TQQQ: 53.16, SQQQ: 45.74, QQQ: 662.33, SPY: 740.18, SOXX: 140.98 },
       realIntraStats: {},
       customBaseTheo: null,
       anchorDt: "11/17",
       isLive: true,
-      liveStatus: "云端实时行情就绪",
+      liveStatus: "正在检测本地 OpenD (11111/8888)...",
       viewMode: "all",
       tacticalMode: "auto",
       compassYears: 5,
@@ -471,7 +472,6 @@
       const spreadPct = spreadRatio * 100;
 
       const is3x = cfg.betaDecay > 0;
-      // 修复母子不同步 Bug：3x杠杆采用 -10% 禁空阈值，1x母体指数按 1/3 波动率对应采用 -3.3% 禁空阈值，实现 SOXL 与 SOXX 100% 同频共振
       const freezeThreshold = is3x ? -10.0 : -3.3;
       const extremeThreshold = is3x ? -35.0 : -11.5;
 
@@ -517,7 +517,6 @@
         ? curP * 1.01
         : Math.max(curP * (is3x ? 1.045 : 1.015), stat.high || 0);
 
-      // 确保真实 VWAP 与当前价格处于合理日内偏离范围内 (杜绝跨日旧 VWAP 残留)
       let rawVwap = stat.vwap || parseFloat((curP * (cfg.isInverse ? 0.992 : 1.008)).toFixed(2));
       if (Math.abs(rawVwap - curP) / curP > (is3x ? 0.035 : 0.015)) {
         rawVwap = parseFloat((curP * (cfg.isInverse ? 0.992 : (is3x ? 1.012 : 1.005))).toFixed(2));
@@ -585,7 +584,6 @@
         p1228: (getTheoAt(cfg.theoCurve, "12/28") * dFactor)
       };
 
-      // 动态生成与实时价格 100% 同步的诊断文案，彻底消除写死旧价格的矛盾
       const dynamicPhaseDesc = cfg.isInverse
         ? `【反向镜像·高位换手蓄势相】${state.ticker} 现价 $${curP.toFixed(2)} (分时 VWAP $${curVwap.toFixed(2)})，随正股超跌反抽进行回踩蓄势，波段上看 ${sysTrack.dt1} ($${sysTrack.p1118.toFixed(2)}) 与 ${sysTrack.dt2} 峰值 ($${sysTrack.p1126.toFixed(2)})`
         : `【周期系统逻辑理论 · ${isShortFrozen ? '超跌负乖离反抽修复相' : '跌破VWAP均值回归相'}】${state.ticker} 实时现价 $${curP.toFixed(2)} (分时 VWAP $${curVwap.toFixed(2)})，较今日理论位 ($${activeTheoNow.toFixed(2)}) 乖离 ${spreadPct>=0?'+'+spreadPct.toFixed(1)+'%':spreadPct.toFixed(1)+'%'}，日内围绕均线震荡修复后指向 ${sysTrack.dt1} ($${sysTrack.p1118.toFixed(2)}) 与 ${sysTrack.dt2} 黄金坑 ($${sysTrack.p1126.toFixed(2)})`;
@@ -1121,7 +1119,6 @@
       return { mCfg, P0, horizonYrs, startYear, curQuarter, nextReanchorYear, nextReanchorMonth, cardNodes, svgHtml };
     }
 
-    // 修复 Bug 1 & Bug 3：彻底重构日内分时锚定与母子同频比例区间，杜绝 08:00 价格悬崖和 01:00 攻克VWAP倒挂
     function computeIntraday(m, timeInfo) {
       const { cfg, curP, sysTrack, is3x, lockedHigh, isShortFrozen, curVwap } = m;
       const nowIdx = timeInfo.nowIdx;
@@ -1130,7 +1127,7 @@
       const closeIdx = 14;
 
       const vwap = curVwap;
-      const ampUnit = is3x ? 1.0 : 0.35; // 1x母体振幅严格按 3x 杠杆的 35% 比例缩放
+      const ampUnit = is3x ? 1.0 : 0.35;
 
       const majorSupLow  = parseFloat((Math.max(curP * (1 + 0.035 * ampUnit), vwap * (1 + 0.020 * ampUnit))).toFixed(2));
       const majorSupHigh = parseFloat((Math.max(curP * (1 + 0.058 * ampUnit), vwap * (1 + 0.038 * ampUnit))).toFixed(2));
@@ -1140,7 +1137,6 @@
       const midTarget    = parseFloat((Math.max(vwap * (1 + 0.014 * ampUnit), (vwap + majorSupLow) * 0.5)).toFixed(2));
       const stopHuntExtreme = parseFloat((demandLow * (1 - 0.015 * ampUnit)).toFixed(2));
 
-      // 修复亚洲夜盘起始区域 (08:00~now) 价格锚定：移除 0.82~1.22 死区，直接按当日真实夜盘开盘锚点(curVwap ~ curP)平滑生成早盘轨迹
       const sessionStartAnchor = parseFloat(((vwap * 0.65 + curP * 0.35)).toFixed(2));
       const pastPts = [];
       const maxPastSlot = Math.floor(nowFloatIdx);
@@ -1237,7 +1233,6 @@
       const nowBubbleY = nowY > PAD_T + plotH * 0.58 ? (nowY - 32) : (nowY + 32);
       const nowBubbleX = Math.min(W - PAD_R - 82, Math.max(PAD_L + 82, nowX));
 
-      // 修复 Bug 4：当 NOW 气泡位于左侧亚盘/盘前区时，将 VWAP/阻力/承接标签置于欧美盘前空白带或自动避让 NOW 气泡 Y 轴
       const zoneLabelX = intra.nowFloatIdx < 5.2 ? (xOf(3) + 14) : (PAD_L + 12);
       const rawZoneLabels = [
         {
@@ -1353,9 +1348,23 @@
 
       const elLiveBtn = document.getElementById("liveBtn");
       if (elLiveBtn) {
-        elLiveBtn.className = `px-2.5 py-1 text-xs font-bold rounded-lg border cursor-pointer ${state.isLive ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-amber-50 text-amber-700 border-amber-300'}`;
-        elLiveBtn.innerHTML = state.isLive ? `🟢 ${state.liveStatus}` : `🟡 手动沙盘模式 (点此恢复自动)`;
+        const isOpendActive = state.isLive && state.activeChannel === "opend";
+        elLiveBtn.className = `px-2.5 py-1 text-xs font-bold rounded-lg border cursor-pointer ${state.isLive ? (isOpendActive ? 'bg-purple-50 text-purple-800 border-purple-300' : 'bg-emerald-50 text-emerald-700 border-emerald-300') : 'bg-amber-50 text-amber-700 border-amber-300'}`;
+        elLiveBtn.innerHTML = state.isLive ? `${state.liveStatus}` : `🟡 手动沙盘模式 (点此恢复自动)`;
       }
+
+      const elSourceSwitch = document.getElementById("sourceSwitchGroup");
+      if (elSourceSwitch) {
+        elSourceSwitch.innerHTML = `
+          <button onclick="setDataSource('opend')" class="px-2.5 py-1 text-xs font-bold rounded-l-lg border transition ${state.dataSource==='opend' ? 'bg-purple-700 text-white border-purple-800 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'}">
+            🔌 本地OpenD优先
+          </button>
+          <button onclick="setDataSource('cloud')" class="px-2.5 py-1 text-xs font-bold rounded-r-lg border-t border-b border-r transition ${state.dataSource==='cloud' ? 'bg-sky-600 text-white border-sky-700 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-300 hover:bg-slate-100'}">
+            ☁️ 云端免费API
+          </button>
+        `;
+      }
+
       const elClock = document.getElementById("clockBadge");
       if (elClock) elClock.innerHTML = `🕒 北京 ${timeInfo.bjtStr} | 美东 ${timeInfo.estStr} EST`;
       const elCount = document.getElementById("countdownBadge");
@@ -1373,7 +1382,7 @@
       }
 
       const elSliderLabel = document.getElementById("sliderStatusLabel");
-      if (elSliderLabel) elSliderLabel.innerHTML = `${state.isLive?'🟢 实时价格锚点':'🟡 手动沙盘验证'} (${state.ticker})`;
+      if (elSliderLabel) elSliderLabel.innerHTML = `${state.isLive ? (state.activeChannel==='opend' ? '🔌 本地OpenD实时锚点' : '☁️ 云端实时价格锚点') : '🟡 手动沙盘验证'} (${state.ticker})`;
       const elSliderVal = document.getElementById("sliderPriceVal");
       if (elSliderVal) elSliderVal.innerHTML = `$${curP.toFixed(2)}`;
 
@@ -1649,6 +1658,7 @@
           <div>
             <div class="flex items-center gap-2 flex-wrap">
               <button id="liveBtn" onclick="toggleLive()"></button>
+              <div id="sourceSwitchGroup" class="inline-flex items-center"></div>
               <span id="clockBadge" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-slate-900 text-amber-300"></span>
               <span id="countdownBadge" class="px-2.5 py-1 text-xs font-mono font-bold rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200"></span>
               <h1 id="headerTitle" class="text-base md:text-lg font-bold text-slate-900"></h1>
@@ -1717,6 +1727,13 @@
       state.isLive = forceTrue ? true : !state.isLive;
       state.customBaseTheo = null;
       state.anchorDt = "11/17";
+      if (state.isLive) syncQuotes();
+      updateDynamicSections();
+    };
+    window.setDataSource = (src) => {
+      state.dataSource = src;
+      state.isLive = true;
+      syncQuotes();
       updateDynamicSections();
     };
     window.setView = (v) => { state.viewMode = v; renderFullShell(); };
@@ -1741,14 +1758,80 @@
     window.copyReport = () => {
       const timeInfo = getRealTimeSlotInfo();
       const m = computeAll(timeInfo);
-      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V6.0 实盘战报】**\n● 现价 $${m.curP.toFixed(2)} | VWAP $${m.curVwap.toFixed(2)} | 乖离率 ${m.spreadPct.toFixed(1)}%`;
+      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V6.0 实盘战报】**\n● 数据源: ${state.activeChannel==='opend'?'本地Moomoo OpenD':'云端API'} | 现价 $${m.curP.toFixed(2)} | VWAP $${m.curVwap.toFixed(2)} | 乖离率 ${m.spreadPct.toFixed(1)}%`;
       navigator.clipboard.writeText(text);
       state.copied = true; updateDynamicSections();
       setTimeout(() => { state.copied = false; updateDynamicSections(); }, 2000);
     };
 
+    // 核心同步引擎：优先尝试本地 Moomoo OpenD (127.0.0.1:8888 / live_price.json)，支持手动切换与自动无缝容灾
     async function syncQuotes() {
       if (!state.isAuthed || !state.isLive) return;
+      const bjtNowStr = getRealTimeSlotInfo().bjtStr;
+
+      if (state.dataSource === "opend") {
+        // 1) 优先尝试本地 moo_bridge.py 批量高速接口
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 2200);
+          const res = await fetch("http://127.0.0.1:8888/api/quotes_all", { signal: ctrl.signal });
+          clearTimeout(timer);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.quotes) {
+              TICKER_ORDER.forEach(sym => {
+                const q = data.quotes[sym];
+                if (q && q.price > 0) {
+                  state.prices[sym] = parseFloat(q.price.toFixed(2));
+                  if (q.reg_close > 0) RAW_DB[sym].regClose = parseFloat(q.reg_close.toFixed(2));
+                  state.realIntraStats[sym] = {
+                    high: parseFloat((q.high || q.price * 1.02).toFixed(2)),
+                    low: parseFloat((q.low || q.price * 0.98).toFixed(2)),
+                    vwap: parseFloat((q.vwap || q.price * (RAW_DB[sym].isInverse ? 0.992 : 1.008)).toFixed(2))
+                  };
+                }
+              });
+              const slider = document.getElementById("priceSlider");
+              if (slider) slider.value = state.prices[state.ticker];
+              state.activeChannel = "opend";
+              state.liveStatus = `🔌 本地OpenD实盘 (${data.ts || bjtNowStr})`;
+              updateDynamicSections();
+              return;
+            }
+          }
+        } catch (bridgeErr) {}
+
+        // 2) 次选尝试本地 moo_live_daemon.py 生成的 live_price.json
+        try {
+          const resJson = await fetch(`./live_price.json?t=${Date.now()}`);
+          if (resJson.ok) {
+            const j = await resJson.json();
+            if (j && j.prices) {
+              TICKER_ORDER.forEach(sym => {
+                const p = j.prices[sym];
+                if (p && p > 0) {
+                  state.prices[sym] = parseFloat(Number(p).toFixed(2));
+                  if (j.prev_close && j.prev_close[sym] > 0) RAW_DB[sym].regClose = parseFloat(Number(j.prev_close[sym]).toFixed(2));
+                  const meta = j.intraday_meta ? j.intraday_meta[sym] : null;
+                  state.realIntraStats[sym] = {
+                    high: meta && meta.high ? parseFloat(Number(meta.high).toFixed(2)) : parseFloat((p * 1.02).toFixed(2)),
+                    low: meta && meta.low ? parseFloat(Number(meta.low).toFixed(2)) : parseFloat((p * 0.98).toFixed(2)),
+                    vwap: parseFloat((p * (RAW_DB[sym].isInverse ? 0.992 : 1.008)).toFixed(2))
+                  };
+                }
+              });
+              const slider = document.getElementById("priceSlider");
+              if (slider) slider.value = state.prices[state.ticker];
+              state.activeChannel = "opend";
+              state.liveStatus = `🔌 本地OpenD守护进程 (${j.ts || bjtNowStr})`;
+              updateDynamicSections();
+              return;
+            }
+          }
+        } catch (daemonErr) {}
+      }
+
+      // 3) 云端免费 API 模式（或本地 OpenD 未启动时的自动无感兜底）
       try {
         await Promise.all(TICKER_ORDER.map(async (sym) => {
           const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&range=1d&includePrePost=true`;
@@ -1814,14 +1897,17 @@
             } catch (innerE) {}
           }
         }));
-        state.liveStatus = `云端公网实时 (${getRealTimeSlotInfo().bjtStr})`;
+        state.activeChannel = "cloud";
+        state.liveStatus = state.dataSource === "opend"
+          ? `☁️ 云端兜底中 (待本地OpenD连接 ${bjtNowStr})`
+          : `☁️ 云端公网实时 (${bjtNowStr})`;
         updateDynamicSections();
       } catch (e) {}
     }
 
     renderFullShell();
     setInterval(() => { if (state.isAuthed) updateDynamicSections(); }, 1000);
-    setInterval(syncQuotes, 8000);
+    setInterval(syncQuotes, 5000);
     syncQuotes();
   </script>
 </body>

@@ -1,23 +1,11 @@
 import os, time, json
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import pandas as pd
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 
 try:
     from moomoo import OpenQuoteContext, SubType, RET_OK, SysConfig
 except ImportError:
     from futu import OpenQuoteContext, SubType, RET_OK, SysConfig
-
-app = FastAPI(title="Moomoo OpenD Local Bridge V6.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 SYMBOL_MAP = {
     "SOXL": "US.SOXL",
@@ -29,7 +17,8 @@ SYMBOL_MAP = {
     "SOXX": "US.SOXX"
 }
 ALL_CODES = list(SYMBOL_MAP.values())
-OUT_JSON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "live_price.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUT_JSON = os.path.join(BASE_DIR, "live_price.json")
 
 quote_ctx = None
 
@@ -46,16 +35,21 @@ def extract_session_quote(row):
     reg_p = float(row.get("last_price", 0) or 0)
     prev_c = float(row.get("prev_close_price", 0) or reg_p)
 
-    # 按北京时间所属交易时段，精准提取富途 OpenD 对应的夜盘/盘前/盘后/正盘价格与成交均价(VWAP)
     if 8 <= bjt_h < 16:
-         session_cols = [("overnight_price", "overnight_high_price", "overnight_low_price", "overnight_volume", "overnight_turnover"),
-                         ("after_price", "after_high_price", "after_low_price", "after_volume", "after_turnover"),
-                         ("pre_price", "pre_high_price", "pre_low_price", "pre_volume", "pre_turnover")]
+        session_cols = [
+            ("overnight_price", "overnight_high_price", "overnight_low_price", "overnight_volume", "overnight_turnover"),
+            ("after_price", "after_high_price", "after_low_price", "after_volume", "after_turnover"),
+            ("pre_price", "pre_high_price", "pre_low_price", "pre_volume", "pre_turnover")
+        ]
     elif 16 <= bjt_h < 22:
-        session_cols = [("pre_price", "pre_high_price", "pre_low_price", "pre_volume", "pre_turnover"),
-                        ("overnight_price", "overnight_high_price", "overnight_low_price", "overnight_volume", "overnight_turnover")]
+        session_cols = [
+            ("pre_price", "pre_high_price", "pre_low_price", "pre_volume", "pre_turnover"),
+            ("overnight_price", "overnight_high_price", "overnight_low_price", "overnight_volume", "overnight_turnover")
+        ]
     elif 5 <= bjt_h < 8:
-        session_cols = [("after_price", "after_high_price", "after_low_price", "after_volume", "after_turnover")]
+        session_cols = [
+            ("after_price", "after_high_price", "after_low_price", "after_volume", "after_turnover")
+        ]
     else:
         session_cols = []
 
@@ -87,8 +81,7 @@ def extract_session_quote(row):
         "volume": int(vol)
     }
 
-@app.get("/api/quotes_all")
-def get_all_quotes():
+def fetch_opend_payload():
     global quote_ctx
     try:
         ctx = get_ctx()
@@ -112,16 +105,88 @@ def get_all_quotes():
             try: quote_ctx.close()
             except Exception: pass
             quote_ctx = None
-        raise HTTPException(status_code=503, detail=str(e))
+        raise e
 
-@app.get("/api/quote/{symbol}")
-def get_single_quote(symbol: str):
-    all_q = get_all_quotes()
-    sym = symbol.upper()
-    if sym not in all_q["quotes"]:
-        raise HTTPException(status_code=404, detail="Symbol not found")
-    return {"symbol": sym, **all_q["quotes"][sym], "source": "moomoo_opend"}
+class BridgeHandler(BaseHTTPRequestHandler):
+    def _send_cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self._send_cors()
+        self.end_headers()
+
+    def do_GET(self):
+        path = self.path.split("?")[0]
+        if path in ("/", "/index.html", "/dashboard.html"):
+            try:
+                with open(os.path.join(BASE_DIR, "index.html"), "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self._send_cors()
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            except Exception as e:
+                pass
+
+        if path == "/api/quotes_all":
+            try:
+                payload = fetch_opend_payload()
+                body = json.dumps(payload).encode("utf-8")
+                self.send_response(200)
+                self._send_cors()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as e:
+                err = json.dumps({"error": str(e)}).encode("utf-8")
+                self.send_response(503)
+                self._send_cors()
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(err)
+            return
+
+        if path.startswith("/api/quote/"):
+            sym = path.split("/api/quote/")[-1].upper()
+            try:
+                payload = fetch_opend_payload()
+                if sym in payload["quotes"]:
+                    out = {"symbol": sym, **payload["quotes"][sym], "source": "moomoo_opend"}
+                    self.send_response(200)
+                    self._send_cors()
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(out).encode("utf-8"))
+                    return
+            except Exception as e:
+                pass
+            self.send_response(503)
+            self._send_cors()
+            self.end_headers()
+            return
+
+        self.send_response(404)
+        self._send_cors()
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        return
 
 if __name__ == "__main__":
-    print("🚀 Moomoo OpenD 本地桥接服务已启动: http://127.0.0.1:8888/api/quotes_all")
-    uvicorn.run(app, host="127.0.0.1", port=8888)
+    server = HTTPServer(("127.0.0.1", 8888), BridgeHandler)
+    print("=================================================================")
+    print("🚀 Moomoo OpenD 零依赖本地桥接服务已启动！(监听 127.0.0.1:8888)")
+    print("👉 本地直连访问地址 : http://127.0.0.1:8888")
+    print("👉 GitHub Pages 亦可通过 8888 端口自动读取本地 OpenD 实时行情")
+    print("=================================================================")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n🛑 本地桥接服务已停止。")

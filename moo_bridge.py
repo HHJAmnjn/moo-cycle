@@ -3,9 +3,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import pandas as pd
 
 try:
-    from moomoo import OpenQuoteContext, SubType, RET_OK, SysConfig
+    from moomoo import OpenQuoteContext, SubType, KLType, AuType, RET_OK, SysConfig
 except ImportError:
-    from futu import OpenQuoteContext, SubType, RET_OK, SysConfig
+    from futu import OpenQuoteContext, SubType, KLType, AuType, RET_OK, SysConfig
 
 SYMBOL_MAP = {
     "SOXL": "US.SOXL",
@@ -21,16 +21,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_JSON = os.path.join(BASE_DIR, "live_price.json")
 
 quote_ctx = None
+session_history = {sym: {} for sym in SYMBOL_MAP.keys()}
 
 def get_ctx():
     global quote_ctx
     if quote_ctx is None:
         SysConfig.enable_proto_encrypt(False)
         quote_ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
-        quote_ctx.subscribe(ALL_CODES, [SubType.QUOTE], subscribe_push=False)
+        quote_ctx.subscribe(ALL_CODES, [SubType.QUOTE, SubType.RT_DATA], subscribe_push=False)
     return quote_ctx
 
-def extract_session_quote(row):
+def extract_session_quote(row, sym):
     bjt_h = time.localtime().tm_hour
     reg_p = float(row.get("last_price", 0) or 0)
     prev_c = float(row.get("prev_close_price", 0) or reg_p)
@@ -71,10 +72,14 @@ def extract_session_quote(row):
                 turn = float(row[t_col])
             break
 
+    reg_close_base = reg_p if (8 <= bjt_h < 22 and reg_p > 0 and abs(active_p - reg_p) > 0.01) else prev_c
     vwap = round(turn / vol, 2) if (vol > 0 and turn > 0) else round((hi + lo + active_p) / 3.0, 2)
+    chg_pct = round(((active_p - reg_close_base) / reg_close_base) * 100.0, 2) if reg_close_base > 0 else 0.0
+
     return {
         "price": round(active_p, 2),
-        "reg_close": round(reg_p if (8 <= bjt_h < 22 and reg_p > 0) else prev_c, 2),
+        "reg_close": round(reg_close_base, 2),
+        "chg_pct": chg_pct,
         "high": round(max(hi, active_p), 2),
         "low": round(min(lo, active_p) if lo > 0 else active_p, 2),
         "vwap": vwap,
@@ -91,7 +96,7 @@ def fetch_opend_payload():
         res = {}
         for _, row in data.iterrows():
             sym = str(row["code"]).replace("US.", "")
-            res[sym] = extract_session_quote(row)
+            res[sym] = extract_session_quote(row, sym)
         payload = {"ts": time.strftime("%H:%M:%S"), "source": "moomoo_opend", "quotes": res}
         try:
             with open(OUT_JSON + ".tmp", "w", encoding="utf-8") as f:
@@ -132,7 +137,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(content)
                 return
-            except Exception as e:
+            except Exception:
                 pass
 
         if path == "/api/quotes_all":
@@ -153,25 +158,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self.wfile.write(err)
             return
 
-        if path.startswith("/api/quote/"):
-            sym = path.split("/api/quote/")[-1].upper()
-            try:
-                payload = fetch_opend_payload()
-                if sym in payload["quotes"]:
-                    out = {"symbol": sym, **payload["quotes"][sym], "source": "moomoo_opend"}
-                    self.send_response(200)
-                    self._send_cors()
-                    self.send_header("Content-Type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps(out).encode("utf-8"))
-                    return
-            except Exception as e:
-                pass
-            self.send_response(503)
-            self._send_cors()
-            self.end_headers()
-            return
-
         self.send_response(404)
         self._send_cors()
         self.end_headers()
@@ -184,7 +170,6 @@ if __name__ == "__main__":
     print("=================================================================")
     print("🚀 Moomoo OpenD 零依赖本地桥接服务已启动！(监听 127.0.0.1:8888)")
     print("👉 本地直连访问地址 : http://127.0.0.1:8888")
-    print("👉 GitHub Pages 亦可通过 8888 端口自动读取本地 OpenD 实时行情")
     print("=================================================================")
     try:
         server.serve_forever()

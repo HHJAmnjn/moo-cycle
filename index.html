@@ -56,7 +56,7 @@
       "09/28","09/29","09/30","10/01","10/02","10/05","10/06","10/07","10/08","10/09",
       "10/12","10/13","10/14","10/15","10/16","10/19","10/20","10/21","10/22","10/23",
       "10/26","10/27","10/28","10/29","10/30","11/02","11/03","11/04","11/05","11/06",
-      "11/09","11/10","11/11","11/12","11/13","11/16"
+      "11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18"
     ];
 
     const SOXL_DAILY_HIST = [
@@ -70,7 +70,7 @@
       ["10/19",97.5], ["10/20",103.2],["10/21",81.8], ["10/22",83.5], ["10/23",86.2],
       ["10/26",89.0], ["10/27",101.5],["10/28",107.5],["10/29",102.0],["10/30",74.5],
       ["11/02",68.5], ["11/03",73.2], ["11/04",68.0], ["11/05",40.87],["11/06",46.50],
-      ["11/09",56.20],["11/10",56.06],["11/11",66.03],["11/12",62.70],["11/13",58.32],["11/16",48.76]
+      ["11/09",56.20],["11/10",56.06],["11/11",66.03],["11/12",62.70],["11/13",58.32],["11/16",48.76],["11/17",49.07],["11/18",49.26]
     ];
 
     function buildAuthenticDailyHist(keyAnchors, microWaveSeed = 1.0) {
@@ -163,6 +163,7 @@
       return `${mm}/${dd}`;
     }
 
+    const US_MARKET_HOLIDAYS = new Set(["11/26", "12/25", "01/01", "01/18", "02/15"]);
     function getNextTradingDays(baseDate, count = 5) {
       const res = [];
       const wkNames = ["周日","周一","周二","周三","周四","周五","周六"];
@@ -172,13 +173,14 @@
         cur = new Date(cur.getTime() + 86400000);
         calOffset++;
         const day = cur.getDay();
-        if (day !== 0 && day !== 6) {
-          const mm = String(cur.getMonth() + 1).padStart(2, "0");
-          const dd = String(cur.getDate()).padStart(2, "0");
+        const mm = String(cur.getMonth() + 1).padStart(2, "0");
+        const dd = String(cur.getDate()).padStart(2, "0");
+        const mmdd = `${mm}/${dd}`;
+        if (day !== 0 && day !== 6 && !US_MARKET_HOLIDAYS.has(mmdd)) {
           res.push({
             tIdx: res.length + 1,
             calOffset,
-            mmdd: `${mm}/${dd}`,
+            mmdd,
             wk: wkNames[day]
           });
         }
@@ -686,11 +688,14 @@
     }
 
     function computeAndBuildWeekly5D(m, timeInfo) {
-      const { cfg, curP, activeTheoNow, isExtremeBarrierBreached, calcSysRev, is3x, curVwap } = m;
+      const { cfg, curP, activeTheoNow, isExtremeBarrierBreached, isShortFrozen, calcSysRev, is3x, curVwap } = m;
       const baseDate = timeInfo ? timeInfo.now : new Date();
+      const todayMmDd = timeInfo ? timeInfo.realMmDd : state.anchorDt;
       const next5Days = getNextTradingDays(baseDate, 5);
 
-      const pastSlice = cfg.hist.slice(-4).map((d, idx) => ({
+      // 补齐连续过去 4 个真实交易日 + 今日 T+0，确保横轴连续不跳天
+      const pastFiltered = cfg.hist.filter(d => dayOf(d[0]) < dayOf(todayMmDd));
+      const pastSlice = pastFiltered.slice(-4).map((d, idx) => ({
         slotIdx: idx,
         label: d[0],
         subLabel: `T-${4 - idx}`,
@@ -699,20 +704,26 @@
       }));
       pastSlice.push({
         slotIdx: 4,
-        label: timeInfo ? timeInfo.realMmDd : "11/17",
+        label: todayMmDd,
         subLabel: "T+0(今日)",
         p: curP,
         isPast: true
       });
 
       const bandHalfWidth = is3x ? 0.046 : 0.015;
-      const anchorDayNum = dayOf(state.anchorDt);
+      const effAnchorDt = (state.isLive && !state.customBaseTheo && dayOf(todayMmDd) >= dayOf("11/05") && dayOf(todayMmDd) <= dayOf("12/28"))
+        ? todayMmDd
+        : state.anchorDt;
+      const anchorDayNum = dayOf(effAnchorDt);
       const lastTheoDt = cfg.theoCurve[cfg.theoCurve.length - 1][0];
       const lastTheoDay = dayOf(lastTheoDt);
 
       const future5Days = next5Days.map((dInfo, idx) => {
         const step = idx + 1;
-        const mappedModelDay = anchorDayNum + dInfo.calOffset;
+        // 感恩节休市后首日 (11/27 黑五) 紧贴 11/26 黄金坑右脚窗口落地，不提前跳涨
+        let mappedModelDay = anchorDayNum + dInfo.calOffset;
+        if (dInfo.mmdd === "11/27") mappedModelDay = dayOf("11/26");
+
         let modelCenter = mappedModelDay > lastTheoDay ? calcSysRev(lastTheoDt) : curP;
         for (let k = 0; k < cfg.theoCurve.length - 1; k++) {
           const d0 = dayOf(cfg.theoCurve[k][0]), d1 = dayOf(cfg.theoCurve[k + 1][0]);
@@ -725,51 +736,79 @@
           }
         }
 
+        // 计入 3x 杠杆路径震荡磨损，与第三层磨损修正轨 ($42.35) 及第四层 predict_1year.py 100% 对齐
+        if (is3x && !cfg.isInverse && cfg.betaDecay > 0) {
+          const decayProgress = Math.min(1.0, dInfo.calOffset / 7.0);
+          modelCenter = modelCenter * (1.0 - cfg.betaDecay * decayProgress);
+        }
+
         let microAdjustedP = modelCenter;
         if (isExtremeBarrierBreached) {
           const pulseRatio = Math.min(1.0, step * 0.24);
           microAdjustedP = curP + (activeTheoNow - curP) * pulseRatio;
-        } else if (!cfg.isInverse && curP < curVwap) {
-          const vwapDrag = step === 1 ? (curVwap - curP) * 0.25 : -Math.abs(curVwap - curP) * 0.18 * (step / 5);
-          microAdjustedP = modelCenter + vwapDrag;
+        } else if (!cfg.isInverse && curP < curVwap && !isShortFrozen) {
+          // 跌破VWAP且负乖离已收敛：T+1 不再错误往上拉，而是按向下均值回归并压制在VWAP下方
+          const vwapDrag = -Math.abs(curVwap - curP) * (0.14 + 0.04 * step);
+          microAdjustedP = Math.min(curP * (1 - 0.008 * step), modelCenter) + vwapDrag;
         } else if (cfg.isInverse && curP >= curVwap) {
-          microAdjustedP = modelCenter * (1 + 0.008 * step);
+          microAdjustedP = modelCenter * (1 + 0.006 * step);
         }
 
-        const dailyCeiling = Math.max(microAdjustedP, modelCenter) * (1 + bandHalfWidth * (1 + step * 0.06));
-        const dailyFloor = Math.min(microAdjustedP, modelCenter) * (1 - bandHalfWidth * (1 + step * 0.06));
-
+        const dailyCeiling = Math.max(microAdjustedP, modelCenter) * (1 + bandHalfWidth * (1 + step * 0.05));
+        const dailyFloor = Math.min(microAdjustedP, modelCenter) * (1 - bandHalfWidth * (1 + step * 0.05));
         const gammaUpper = dailyCeiling * (is3x ? 1.018 : 1.006);
         const gammaLower = dailyFloor * (is3x ? 0.982 : 0.994);
+
+        // 动态按真实周期节点高亮与打标（彻底取消写死 step===3）
+        const isGoldenPitWin = dInfo.mmdd === "11/25" || dInfo.mmdd === "11/27";
+        const isYearPeakWin  = dInfo.mmdd === "12/09" || dInfo.mmdd === "12/10" || dInfo.mmdd === "12/11";
+        const isKeyNode = dInfo.mmdd === "11/27" || dInfo.mmdd === "12/10";
 
         let microDriverTag = "";
         if (isExtremeBarrierBreached) {
           microDriverTag = "🚨 负乖离红线主导：空头回补强行弹射";
-        } else if (!cfg.isInverse && curP < curVwap) {
+        } else if (dInfo.mmdd === "11/27") {
+          microDriverTag = cfg.isInverse
+            ? "💰 感恩节后黑五·周期波峰兑现：空头ETF分批止盈"
+            : "🎯 11/26黄金坑落地(黑五半日市)：空单清仓/分批抄底";
+        } else if (dInfo.mmdd === "11/25") {
+          microDriverTag = cfg.isInverse
+            ? "🔥 节前逼空冲刺：接近周期目标区锁利50%"
+            : "⚡ 感恩节前流动性出清：逼近黄金坑下沿禁追空";
+        } else if (isYearPeakWin) {
+          microDriverTag = cfg.isInverse
+            ? "🎯 12/10波谷窗口：反向ETF分批低吸"
+            : "💰 12/10跨年波峰窗：多单逢高兑现落袋";
+        } else if (!cfg.isInverse && curP < curVwap && !isShortFrozen) {
           microDriverTag = step === 1
-            ? `🟡 VWAP反压主导：反抽 $${Math.min(curVwap, dailyCeiling).toFixed(2)} 受阻`
-            : (step === 3 ? "🎯 周期中继窗：回撤空单减半锁利" : "🔴 均值回归主导：阶梯向下寻底");
+            ? `🟡 VWAP反压主导：反抽 $${Math.min(curVwap, dailyCeiling).toFixed(2)} 受阻转空`
+            : "🔴 周期主跌浪：阶梯向下向黄金坑寻底";
         } else if (cfg.isInverse) {
-          microDriverTag = step === 3 ? "💰 周期中继兑现：多单分批止盈50%" : "🟣 镜像买盘主导：回踩底线低吸";
+          microDriverTag = step === 1
+            ? `🟣 镜像顺势推进：回踩 $${Math.max(curVwap * 0.985, dailyFloor).toFixed(2)} 低吸`
+            : "🟣 镜像主升推进：依托走廊底线顺势持有";
         } else {
-          microDriverTag = "⚡ 走廊主导：高抛天花板低吸底线";
+          microDriverTag = isShortFrozen
+            ? "🟡 负乖离修复主导：反抽阻力带后再定方向"
+            : "🟢 周期修复推进：回踩底线顺势做多";
         }
 
         return {
           slotIdx: 4 + step,
           tLabel: `T+${step}`,
           mmdd: dInfo.mmdd,
-          wk: dInfo.wk,
+          wk: dInfo.mmdd === "11/27" ? "黑五" : dInfo.wk,
           p: microAdjustedP,
           ceiling: dailyCeiling,
           floor: dailyFloor,
           gammaUpper,
           gammaLower,
+          isKeyNode,
           microDriverTag
         };
       });
 
-      const W = 1000, H = 350, PAD_L = 66, PAD_R = 28, PAD_T = 36, PAD_B = 40;
+      const W = 1000, H = 355, PAD_L = 66, PAD_R = 52, PAD_T = 36, PAD_B = 42;
       const plotW = W - PAD_L - PAD_R;
       const plotH = H - PAD_T - PAD_B;
       const totalSlots = 9;
@@ -783,8 +822,8 @@
         ...future5Days.map(d => d.gammaLower),
         curVwap
       ];
-      const minY = Math.min(...allVals) * 0.985;
-      const maxY = Math.max(...allVals) * 1.015;
+      const minY = Math.min(...allVals) * 0.975;
+      const maxY = Math.max(...allVals) * 1.02;
       const yOf = (val) => PAD_T + (1 - (val - minY) / (maxY - minY)) * plotH;
 
       let gridHtml = "";
@@ -812,18 +851,19 @@
         const cyCeil = yOf(d.ceiling);
         const cyFloor = yOf(d.floor);
         const showBox = idx === 0 || idx === 2 || idx === 4;
-        const boxX = Math.min(W - PAD_R - 56, Math.max(PAD_L + 56, cx));
+        const boxX = Math.min(W - PAD_R - 46, Math.max(PAD_L + 56, cx));
+        const txtX = Math.min(W - 26, cx);
         return `
           <line x1="${cx}" y1="${cyCeil}" x2="${cx}" y2="${cyFloor}" stroke="#64748B" stroke-width="1.5" stroke-dasharray="2 2"/>
           <circle cx="${cx}" cy="${cyCeil}" r="3.5" fill="#F43F5E"/>
-          <text x="${cx}" y="${cyCeil - 7}" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#FDA4AF" class="font-mono">顶$${d.ceiling.toFixed(1)}</text>
+          <text x="${txtX}" y="${cyCeil - 7}" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#FDA4AF" class="font-mono">顶$${d.ceiling.toFixed(1)}</text>
           <circle cx="${cx}" cy="${cyFloor}" r="3.5" fill="#10B981"/>
-          <text x="${cx}" y="${cyFloor + 13}" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#6EE7B7" class="font-mono">底$${d.floor.toFixed(1)}</text>
-          <circle cx="${cx}" cy="${cyMain}" r="5" fill="#38BDF8" stroke="#0F172A" stroke-width="1.5"/>
+          <text x="${txtX}" y="${cyFloor + 13}" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#6EE7B7" class="font-mono">底$${d.floor.toFixed(1)}</text>
+          <circle cx="${cx}" cy="${cyMain}" r="5" fill="${d.isKeyNode ? '#FACC15' : '#38BDF8'}" stroke="#0F172A" stroke-width="1.5"/>
           ${showBox ? `
-            <g transform="translate(${boxX}, ${cyMain + (idx % 2 === 0 ? -18 : 18)})">
-              <rect x="-54" y="-10" width="108" height="18" rx="4" fill="#0F172A" stroke="#38BDF8" stroke-width="1.2" opacity="0.95"/>
-              <text x="0" y="3" text-anchor="middle" font-size="10" font-weight="bold" fill="#38BDF8" class="font-mono">${d.tLabel}:$${d.p.toFixed(2)}</text>
+            <g transform="translate(${boxX}, ${Math.max(PAD_T + 14, Math.min(H - PAD_B - 14, cyMain + (idx === 0 ? -18 : -16)))})">
+              <rect x="-54" y="-10" width="108" height="18" rx="4" fill="#0F172A" stroke="${d.isKeyNode ? '#FACC15' : '#38BDF8'}" stroke-width="1.2" opacity="0.95"/>
+              <text x="0" y="3" text-anchor="middle" font-size="10" font-weight="bold" fill="${d.isKeyNode ? '#FDE047' : '#38BDF8'}" class="font-mono">${d.tLabel}:$${d.p.toFixed(2)}</text>
             </g>
           ` : ""}
         `;
@@ -831,14 +871,14 @@
 
       const allSlots = [
         ...pastSlice.map(d => ({ slotIdx: d.slotIdx, top: d.label, bot: d.subLabel, isNow: d.slotIdx === 4 })),
-        ...future5Days.map(d => ({ slotIdx: d.slotIdx, top: `${d.mmdd}(${d.wk})`, bot: d.tLabel, isNow: false }))
+        ...future5Days.map(d => ({ slotIdx: d.slotIdx, top: `${d.mmdd}(${d.wk})`, bot: d.tLabel, isNow: false, isKey: d.isKeyNode }))
       ];
 
       const svgHtml = `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto select-none">
         <rect x="${PAD_L}" y="6" width="${xOf(4)-PAD_L}" height="24" rx="4" fill="#0F172A"/>
         <text x="${(PAD_L+xOf(4))*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#94A3B8" class="font-mono">◀ 过去 5 个交易日真实收盘轨迹</text>
         <rect x="${xOf(4)+2}" y="6" width="${W-PAD_R-xOf(4)-2}" height="24" rx="4" fill="#1E1B4B"/>
-        <text x="${(xOf(4)+W-PAD_R)*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#A5B4FC" class="font-mono">🔮 未来 1~5 个交易日周内推演区 ▶</text>
+        <text x="${(xOf(4)+W-PAD_R)*0.5}" y="22" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#A5B4FC" class="font-mono">🔮 未来 5 个交易日推演区 (已自动跳过11/26感恩节休市) ▶</text>
 
         <rect x="${PAD_L}" y="${PAD_T}" width="${plotW}" height="${plotH}" fill="#0F172A" rx="8"/>
         <rect x="${xOf(4)}" y="${PAD_T}" width="${W-PAD_R-xOf(4)}" height="${plotH}" fill="#1E293B" opacity="0.72"/>
@@ -867,8 +907,8 @@
         ${dayMarkersHtml}
 
         ${allSlots.map(s => `
-          <text x="${xOf(s.slotIdx)}" y="${H-17}" text-anchor="middle" font-size="10" font-weight="${s.isNow?'bold':'normal'}" fill="${s.isNow?'#F87171':'#CBD5E1'}" class="font-mono">${s.top}</text>
-          <text x="${xOf(s.slotIdx)}" y="${H-5}" text-anchor="middle" font-size="9" font-weight="bold" fill="${s.isNow?'#FCA5A5':(s.slotIdx>4?'#818CF8':'#64748B')}" class="font-mono">${s.bot}</text>
+          <text x="${Math.min(W - 32, xOf(s.slotIdx))}" y="${H-17}" text-anchor="middle" font-size="10" font-weight="${s.isNow||s.isKey?'bold':'normal'}" fill="${s.isNow?'#F87171':(s.isKey?'#FDE047':'#CBD5E1')}" class="font-mono">${s.top}</text>
+          <text x="${Math.min(W - 32, xOf(s.slotIdx))}" y="${H-5}" text-anchor="middle" font-size="9" font-weight="bold" fill="${s.isNow?'#FCA5A5':(s.isKey?'#FACC15':(s.slotIdx>4?'#818CF8':'#64748B'))}" class="font-mono">${s.bot}</text>
         `).join("")}
       </svg>`;
 
@@ -886,7 +926,7 @@
       const histPts = cfg.hist.filter(d => dayOf(d[0]) < cutDay);
       histPts.push([state.anchorDt, curP]);
 
-      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
+      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/17","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
         .filter(dt => dayOf(dt) > cutDay);
 
       const futSys = [[state.anchorDt, curP], ...futDates.map(dt => [dt, calcSysRev(dt)])];
@@ -1826,7 +1866,7 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-5 gap-2.5 text-xs font-mono bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
               ${weekly5d.future5Days.map((d, i) => `
-                <div class="p-3 rounded-xl bg-white border-l-4 ${i===2 ? 'border-l-indigo-600 ring-1 ring-indigo-300' : 'border-l-slate-500'} border border-slate-200 shadow-sm">
+                <div class="p-3 rounded-xl bg-white border-l-4 ${d.isKeyNode ? 'border-l-amber-500 ring-2 ring-amber-300 bg-amber-50/40' : 'border-l-slate-500'} border border-slate-200 shadow-sm">
                   <div class="flex justify-between items-center font-bold text-slate-700">
                     <span>${d.tLabel} · ${d.mmdd}</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">${d.wk}</span>

@@ -56,7 +56,7 @@
       "09/28","09/29","09/30","10/01","10/02","10/05","10/06","10/07","10/08","10/09",
       "10/12","10/13","10/14","10/15","10/16","10/19","10/20","10/21","10/22","10/23",
       "10/26","10/27","10/28","10/29","10/30","11/02","11/03","11/04","11/05","11/06",
-      "11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18"
+      "11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/19","11/20"
     ];
 
     const SOXL_DAILY_HIST = [
@@ -70,7 +70,7 @@
       ["10/19",97.5], ["10/20",103.2],["10/21",81.8], ["10/22",83.5], ["10/23",86.2],
       ["10/26",89.0], ["10/27",101.5],["10/28",107.5],["10/29",102.0],["10/30",74.5],
       ["11/02",68.5], ["11/03",73.2], ["11/04",68.0], ["11/05",40.87],["11/06",46.50],
-      ["11/09",56.20],["11/10",56.06],["11/11",66.03],["11/12",62.70],["11/13",58.32],["11/16",48.76],["11/17",49.07],["11/18",49.26]
+      ["11/09",56.20],["11/10",56.06],["11/11",66.03],["11/12",62.70],["11/13",58.32],["11/16",48.76],["11/17",49.07],["11/18",49.26],["11/19",45.30],["11/20",30.88]
     ];
 
     function buildAuthenticDailyHist(keyAnchors, microWaveSeed = 1.0) {
@@ -385,7 +385,7 @@
           ["08/31",144.0],["09/07",139.3],["09/14",137.3],["09/21",149.3],["09/28",146.7],
           ["10/05",152.0],["10/12",146.0],["10/14",141.0],["10/19",138.3],["10/21",137.2],
           ["10/26",136.7],["10/30",143.0],["11/02",134.7],["11/05",127.50],["11/09",141.80],
-          ["11/10",146.59],["11/11",155.40],["11/12",153.80],["11/13",152.66],["11/16",141.80],["11/17",141.10],["11/18",141.85]
+          ["11/10",146.59],["11/11",155.40],["11/12",153.80],["11/13",152.66],["11/16",141.80],["11/17",141.10],["11/18",141.85],["11/19",137.95],["11/20",123.40]
         ], 6.1),
         theoCurve: [
           ["10/14",141.0],["10/19",138.7],["10/21",137.2],["10/26",144.0],["10/30",154.5],["11/05",148.0],
@@ -736,10 +736,28 @@
           }
         }
 
-        // 计入 3x 杠杆路径震荡磨损，与第三层磨损修正轨 ($42.35) 及第四层 predict_1year.py 100% 对齐
-        if (is3x && !cfg.isInverse && cfg.betaDecay > 0) {
+        // V6.5 动态波动率磨损 (12.5%~35%) + 极端清算冗余带 (-5% 母体 / -15%~-20% 3x)
+        const v65State = (window.__V65_RISK_STATE__ && window.__V65_RISK_STATE__[state.ticker]) || {};
+        let effBetaDecay = cfg.betaDecay || 0;
+        if (is3x && !cfg.isInverse) {
+          if (v65State.dynBetaDecay && v65State.dynBetaDecay > 0) {
+            effBetaDecay = v65State.dynBetaDecay;
+          } else if (cfg.hist && cfg.hist.length >= 4) {
+            const tail = cfg.hist.slice(-5);
+            let sumRet = 0;
+            for (let j = 1; j < tail.length; j++) {
+              sumRet += Math.abs((tail[j][1] - tail[j-1][1]) / Math.max(0.01, tail[j-1][1])) * 100;
+            }
+            const avgDailyMove = sumRet / Math.max(1, tail.length - 1);
+            effBetaDecay = avgDailyMove <= 6 ? 0.125 : Math.min(0.35, 0.125 + ((avgDailyMove - 6) / 14) * 0.225);
+          }
           const decayProgress = Math.min(1.0, dInfo.calOffset / 7.0);
-          modelCenter = modelCenter * (1.0 - cfg.betaDecay * decayProgress);
+          modelCenter = modelCenter * (1.0 - effBetaDecay * decayProgress);
+        }
+        // 清算熔断激活时，自动叠加冗余安全垫 (1x母体 -5%, 3x杠杆 -17.5%)
+        if (v65State.liquidationActive && !cfg.isInverse) {
+          const liqExtra = is3x ? 0.175 : 0.05;
+          modelCenter = modelCenter * (1.0 - liqExtra * Math.min(1.0, step * 0.35));
         }
 
         let microAdjustedP = modelCenter;
@@ -930,7 +948,7 @@
       const histPts = cfg.hist.filter(d => dayOf(d[0]) < cutDay);
       histPts.push([state.anchorDt, curP]);
 
-      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/17","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
+      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/19","11/20","11/17","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
         .filter(dt => dayOf(dt) > cutDay);
 
       const futSys = [[state.anchorDt, curP], ...futDates.map(dt => [dt, calcSysRev(dt)])];
@@ -2251,5 +2269,245 @@
     setInterval(syncQuotes, 5000);
     syncQuotes();
   </script>
+<!-- V65_RADAR_START -->
+<script id="v65-liquidation-radar">
+(function() {
+  window.__V65_RISK_STATE__ = window.__V65_RISK_STATE__ || {};
+  const LS_KEY = "v65_manual_gex_v1";
+
+  function loadManualGex() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch(e) { return {}; }
+  }
+  function saveManualGex(sym, obj) {
+    const all = loadManualGex();
+    all[sym] = obj;
+    localStorage.setItem(LS_KEY, JSON.stringify(all));
+  }
+
+  function getActiveTicker() {
+    if (typeof state !== "undefined" && state.ticker) return state.ticker;
+    const activeBtn = document.querySelector('button.bg-slate-900, button[class*="bg-slate-900"]');
+    if (activeBtn) {
+      const m = activeBtn.textContent.match(/\b(SOXL|SOXS|TQQQ|SQQQ|QQQ|SPY|SOXX)\b/);
+      if (m) return m[1];
+    }
+    return "SOXL";
+  }
+
+  function ensurePanel() {
+    let el = document.getElementById("v65-radar-panel");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "v65-radar-panel";
+    el.className = "max-w-7xl mx-auto my-3 px-4";
+    const root = document.getElementById("app") || document.body;
+    if (root.firstChild) root.insertBefore(el, root.firstChild);
+    else root.appendChild(el);
+    return el;
+  }
+
+  let lastPayload = null;
+  let lastTriggerHash = "";
+
+  function renderRadar() {
+    const panel = ensurePanel();
+    const sym = getActiveTicker();
+    const is3x = ["SOXL","SOXS","TQQQ","SQQQ"].includes(sym);
+    const isInv = ["SOXS","SQQQ"].includes(sym);
+    const q = (lastPayload && lastPayload.quotes && lastPayload.quotes[sym]) || null;
+    const rmeta = (lastPayload && lastPayload.risk_meta) || {};
+    const spyChg = rmeta.spy_chg_pct ?? 0;
+
+    const manualAll = loadManualGex();
+    const mGex = manualAll[sym] || {};
+    const apiGex = (q && q.gex) || {};
+    const useManual = (mGex.putWall > 0 || mGex.zeroGamma > 0);
+    const putWall = useManual ? Number(mGex.putWall || 0) : Number(apiGex.put_wall || 0);
+    const zeroGamma = useManual ? Number(mGex.zeroGamma || 0) : Number(apiGex.zero_gamma || 0);
+    const secPut = useManual ? Number(mGex.secPut || 0) : Number(apiGex.secondary_put_wall || 0);
+    const gexSource = useManual ? "手动校准" : (apiGex.source === "opend_auto" ? `OpenD自动(${apiGex.expiry||"近期"})` : "待校准");
+
+    const curP = q ? q.price : 0;
+    const curVwap = q ? q.vwap : 0;
+    const openP = q ? q.open : 0;
+    const dayLow = q ? q.low : 0;
+    const chgPct = q ? q.chg_pct : 0;
+    const aumPct = q ? q.aum_turnover_pct : 0;
+    const turnYi = q ? (q.turnover_usd / 1e8).toFixed(2) : "--";
+    const amp5d = q ? q.amp_5d_pct : (is3x ? 18.5 : 4.2);
+    const dynDecay = q ? q.dyn_beta_decay : (is3x ? 0.30 : 0.0);
+    const low52 = q ? q.low_52w : 0;
+
+    // 核心清算红灯判定 (5维微观共振)
+    const flagAum = aumPct >= 80;
+    const flagAumExtreme = aumPct >= 100;
+    const flagSpy = spyChg <= -2.0;
+    const flagPutBreach = (putWall > 0 && curP > 0 && curP < putWall && (zeroGamma === 0 || curP < zeroGamma));
+    const flagBreakdown = (curP > 0 && openP > 0 && curP < openP && curP < curVwap * 0.985 && chgPct <= (is3x ? -12 : -4));
+    const flagRebalance = Boolean(rmeta.is_rebalance_win && is3x && Math.abs(chgPct) >= 15);
+    const flagMarginWin = Boolean(rmeta.is_margin_call_win && chgPct <= (is3x ? -12 : -4));
+
+    let redCount = 0;
+    if (flagAum) redCount++;
+    if (flagSpy) redCount++;
+    if (flagPutBreach) redCount++;
+    if (flagBreakdown) redCount++;
+    if (flagRebalance) redCount++;
+
+    const liquidationActive = (!isInv && redCount >= 2);
+
+    // 写入全局状态供第二层动态走廊调用
+    window.__V65_RISK_STATE__[sym] = {
+      dynBetaDecay: dynDecay,
+      liquidationActive,
+      redCount,
+      putWall,
+      zeroGamma,
+      aumPct
+    };
+
+    // 状态变化时自动刷新主看板曲线
+    const curHash = `${sym}_${Math.round(dynDecay*100)}_${liquidationActive}`;
+    if (curHash !== lastTriggerHash && typeof render === "function") {
+      lastTriggerHash = curHash;
+      try { render(); } catch(e) {}
+    }
+
+    // 盘口右侧扳机判定 ("周期定方向，盘口定扳机")
+    const aboveVwap = (curP > 0 && curVwap > 0 && curP >= curVwap);
+    const offLowPct = (dayLow > 0 && curP > 0) ? (((curP - dayLow) / dayLow) * 100) : 0;
+    let triggerText = "🟡 等待盘口确认：观察是否站稳 VWAP 且不再创日内新低";
+    let triggerCls = "bg-amber-50 border-amber-300 text-amber-900";
+    if (!q) {
+      triggerText = "⏳ 正在连接本地 OpenD V6.5 实时风控引擎 (127.0.0.1:8888)...";
+      triggerCls = "bg-slate-50 border-slate-300 text-slate-700";
+    } else if (flagRebalance) {
+      triggerText = `🚨 尾盘 3x 机械再平衡高危窗 (ET ${rmeta.et_time})：单日跌 ${chgPct}% 触发基金强制卖盘，严禁提前接刀，等 ET 15:55 后再动手！`;
+      triggerCls = "bg-rose-100 border-rose-500 text-rose-900";
+    } else if (liquidationActive) {
+      const cushion = is3x ? "-15% ~ -20%" : "-5%";
+      const estFloor = curP > 0 ? `$${(curP * (is3x ? 0.85 : 0.95)).toFixed(2)}` : "--";
+      triggerText = `🛑 极端清算熔断激活 (${redCount}/5 红灯)：已自动追加 ${cushion} 冗余安全垫 (防插针至 ${estFloor})，暂停左侧接飞刀，等强平结束并放量站回 VWAP ($${curVwap})！`;
+      triggerCls = "bg-red-100 border-red-500 text-red-900";
+    } else if (aboveVwap && offLowPct >= 1.5) {
+      triggerText = `✅ 盘口右侧扳机就绪：现价 $${curP} 已站稳 VWAP ($${curVwap}) 且脱离日内低点 +${offLowPct.toFixed(1)}%，清算风险解除，可按周期计划执行！`;
+      triggerCls = "bg-emerald-50 border-emerald-400 text-emerald-900";
+    } else if (flagMarginWin) {
+      triggerText = `⚠️ 午盘强平窗警报 (ET ${rmeta.et_time})：美东 11:50-13:00 为 Margin Call 集中清算时段，谨防二次砸穿日内低点 $${dayLow}！`;
+      triggerCls = "bg-orange-50 border-orange-400 text-orange-900";
+    }
+
+    const vwapDiffPct = (curP > 0 && curVwap > 0) ? (((curP - curVwap) / curVwap) * 100).toFixed(2) : "0.00";
+
+    panel.innerHTML = `
+      <div class="rounded-2xl border-2 ${liquidationActive ? 'border-red-500 bg-red-50/40' : 'border-indigo-200 bg-white'} shadow-sm p-4 transition-all">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${liquidationActive ? 'bg-red-600 text-white animate-pulse' : 'bg-indigo-600 text-white'}">
+              ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.5 微结构风控雷达'}
+            </span>
+            <span class="font-bold text-slate-800 text-sm">${sym} 实时监测</span>
+            <span class="text-xs text-slate-500 font-mono">美东 ${rmeta.et_time || '--:--'} | 标普SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</span>
+          </div>
+          <button id="v65-toggle-gex" class="text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold">
+            ⚙️ 期权GEX校准 (${gexSource})
+          </button>
+        </div>
+
+        <div class="rounded-xl border px-3 py-2 text-xs font-bold mb-3 ${triggerCls}">
+          ${triggerText}
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2.5 text-xs">
+          <div class="rounded-xl border p-2.5 ${is3x && dynDecay >= 0.25 ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-slate-50/60'}">
+            <div class="text-slate-500 mb-0.5">动态波动率磨损</div>
+            <div class="font-mono font-bold text-sm text-slate-900">${(dynDecay * 100).toFixed(1)}% <span class="text-[10px] font-normal text-slate-500">(原12.5%)</span></div>
+            <div class="text-[11px] text-slate-600 mt-0.5">5日均振幅: ${amp5d}%</div>
+          </div>
+
+          <div class="rounded-xl border p-2.5 ${flagAumExtreme ? 'border-red-500 bg-red-50' : (flagAum ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-slate-50/60')}">
+            <div class="text-slate-500 mb-0.5">成交额 / AUM 换手</div>
+            <div class="font-mono font-bold text-sm ${flagAum ? 'text-red-600' : 'text-slate-900'}">${aumPct}%</div>
+            <div class="text-[11px] text-slate-600 mt-0.5">成交 $${turnYi}亿 ${flagAumExtreme ? '🔥极值出清' : (flagAum ? '⚠️清算预警' : '正常')}</div>
+          </div>
+
+          <div class="rounded-xl border p-2.5 ${flagPutBreach ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/60'}">
+            <div class="text-slate-500 mb-0.5">期权 GEX 看跌墙</div>
+            <div class="font-mono font-bold text-sm ${flagPutBreach ? 'text-red-600' : 'text-slate-900'}">${putWall > 0 ? '$' + putWall : '未设定'}</div>
+            <div class="text-[11px] text-slate-600 mt-0.5">零G:${zeroGamma > 0 ? '$'+zeroGamma : '--'} ${flagPutBreach ? '🚨已击穿助跌' : (secPut > 0 ? '次柱:$'+secPut : '')}</div>
+          </div>
+
+          <div class="rounded-xl border p-2.5 ${flagSpy ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/60'}">
+            <div class="text-slate-500 mb-0.5">宏观共振 & 52周低</div>
+            <div class="font-mono font-bold text-sm ${flagSpy ? 'text-red-600' : 'text-slate-900'}">SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</div>
+            <div class="text-[11px] text-slate-600 mt-0.5">52W低:$${low52 || '--'} ${flagSpy ? '🚨共振踩踏' : '稳定'}</div>
+          </div>
+
+          <div class="rounded-xl border p-2.5 ${aboveVwap ? 'border-emerald-400 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/60'}">
+            <div class="text-slate-500 mb-0.5">VWAP 扳机 & 再平衡</div>
+            <div class="font-mono font-bold text-sm ${aboveVwap ? 'text-emerald-700' : 'text-rose-600'}">${Number(vwapDiffPct) >= 0 ? '+' : ''}${vwapDiffPct}%</div>
+            <div class="text-[11px] text-slate-600 mt-0.5">${flagRebalance ? '🚨3x尾盘再平衡窗' : (rmeta.is_margin_call_win ? '⚠️午盘强平窗' : (aboveVwap ? '✅站稳均线' : '🔴均线反压'))}</div>
+          </div>
+        </div>
+
+        <div id="v65-gex-editor" class="hidden mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2 text-xs">
+          <span class="font-semibold text-slate-700">${sym} 手动校准期权壁垒 (留空恢复OpenD自动):</span>
+          <label class="flex items-center gap-1">看跌墙 $<input id="v65-in-pw" type="number" step="0.5" value="${mGex.putWall || ''}" placeholder="如 40" class="w-20 px-2 py-1 border rounded font-mono"></label>
+          <label class="flex items-center gap-1">零Gamma $<input id="v65-in-zg" type="number" step="0.5" value="${mGex.zeroGamma || ''}" placeholder="如 46.5" class="w-20 px-2 py-1 border rounded font-mono"></label>
+          <label class="flex items-center gap-1">次级看跌柱 $<input id="v65-in-sp" type="number" step="0.5" value="${mGex.secPut || ''}" placeholder="如 35" class="w-20 px-2 py-1 border rounded font-mono"></label>
+          <button id="v65-save-gex" class="px-3 py-1 rounded bg-indigo-600 text-white font-bold hover:bg-indigo-700">保存并立即监测</button>
+          <button id="v65-clear-gex" class="px-2.5 py-1 rounded bg-slate-200 text-slate-700 font-semibold hover:bg-slate-300">重置</button>
+        </div>
+      </div>
+    `;
+
+    const toggleBtn = document.getElementById("v65-toggle-gex");
+    const editor = document.getElementById("v65-gex-editor");
+    if (toggleBtn && editor) {
+      toggleBtn.onclick = () => editor.classList.toggle("hidden");
+    }
+    const saveBtn = document.getElementById("v65-save-gex");
+    if (saveBtn) {
+      saveBtn.onclick = () => {
+        saveManualGex(sym, {
+          putWall: Number(document.getElementById("v65-in-pw").value) || 0,
+          zeroGamma: Number(document.getElementById("v65-in-zg").value) || 0,
+          secPut: Number(document.getElementById("v65-in-sp").value) || 0
+        });
+        renderRadar();
+      };
+    }
+    const clearBtn = document.getElementById("v65-clear-gex");
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        saveManualGex(sym, {});
+        renderRadar();
+      };
+    }
+  }
+
+  async function pollV65() {
+    try {
+      const resp = await fetch("http://127.0.0.1:8888/api/quotes_all?t=" + Date.now(), { cache: "no-store" });
+      if (resp.ok) {
+        lastPayload = await resp.json();
+        renderRadar();
+      }
+    } catch(e) {
+      renderRadar();
+    }
+  }
+
+  // 监听标的切换按钮，点击后立刻刷新雷达对应标的
+  document.addEventListener("click", () => setTimeout(renderRadar, 120));
+  window.addEventListener("load", () => {
+    renderRadar();
+    pollV65();
+    setInterval(pollV65, 3500);
+  });
+})();
+</script>
+<!-- V65_RADAR_END -->
+
 </body>
 </html>

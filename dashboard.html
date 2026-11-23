@@ -405,6 +405,7 @@
       ticker: "SOXL",
       prices: { SOXL: 49.98, SOXS: 59.43, TQQQ: 53.16, SQQQ: 45.74, QQQ: 662.33, SPY: 740.18, SOXX: 140.98 },
       realIntraStats: {},
+      splvSeesaw: null,
       customBaseTheo: null,
       anchorDt: "11/17",
       isLive: true,
@@ -458,7 +459,7 @@
         const dh = Math.floor(diffSec / 3600);
         const dm = Math.floor((diffSec % 3600) / 60);
         const ds = diffSec % 60;
-        const sessionTag = exactMin < 480 ? "亚洲夜盘交易中" : "欧美盘前交易中";
+        const sessionTag = exactMin < 480 ? "亚洲夜盘交易中" : (((()=>{const _d=new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));const _w=_d.getDay(),_h=_d.getHours();return _w===6||(_w===0&&_h<20)||(_w===5&&_h>=20);})()) ? "🌙 美股周末休市中" : "欧美盘前交易中");
         countdownText = `${sessionTag} · 距22:30正盘 ${dh}h ${dm}m ${ds}s`;
       } else if (exactMin >= closeMin) {
         countdownText = "🌙 美股盘后交易时段 (05:00-08:00)";
@@ -539,7 +540,7 @@
         if (longRegime === "rebound_bull") regimeLabel = `超跌负乖离反抽修复逻辑 (乖离${pSpreadPct.toFixed(1)}%≤${pFreezeTh}%)`;
         else if (longRegime === "overheat_bear") regimeLabel = `正乖离过热诱多派发逻辑 (乖离+${pSpreadPct.toFixed(1)}%≥+${pOverheatTh}%)`;
         else if (longRegime === "cycle_bear") regimeLabel = `周期主跌·高开诱多回落逻辑 (斜率${pSlopePct.toFixed(1)}%向下寻底)`;
-        else regimeLabel = `周期主升·回踩均线推进逻辑 (斜率+${pSlopePct.toFixed(1)}%向上)`;
+        else regimeLabel = `周期主升·回踩均线推进逻辑 (斜率${pSlopePct >= 0 ? "+" : ""}${pSlopePct.toFixed(1)}%${pSlopePct >= 0 ? "向上" : "企稳"})`;
       } else {
         regimeLabel = isIntradayUp
           ? `反向ETF镜像顺势推进逻辑 (正股主跌·逢低做多)`
@@ -585,9 +586,11 @@
 
       const stat = state.realIntraStats[state.ticker] || {};
       const isHistoricalAnchor = state.anchorDt === "11/05" || state.anchorDt === "11/09";
+      const _maxDrift = is3x ? 0.18 : 0.06;
+      const _cleanHigh = (stat.high && stat.high >= curP * 0.995 && stat.high <= curP * (1 + _maxDrift)) ? stat.high : 0;
       const lockedHigh = isHistoricalAnchor
         ? curP * 1.01
-        : Math.max(curP * (is3x ? 1.045 : 1.015), stat.high || 0);
+        : parseFloat(Math.max(curP, _cleanHigh || curP * (is3x ? 1.012 : 1.004)).toFixed(2));
 
       let rawVwap = stat.vwap || parseFloat((curP * (cfg.isInverse ? 0.992 : 1.008)).toFixed(2));
       if (Math.abs(rawVwap - curP) / curP > (is3x ? 0.035 : 0.015)) {
@@ -1391,17 +1394,23 @@
       const midTarget    = parseFloat((Math.max(vwap * (1 + 0.012 * ampUnit), (vwap + majorSupLow) * 0.5)).toFixed(2));
       const stopHuntExtreme = parseFloat((demandLow * (1 - 0.014 * ampUnit)).toFixed(2));
 
-      // 早盘历史轨迹按真实涨跌方向 (curP >= regClose) 绘制，不再写死
+      // V3.9.2 修复：彻底移除陈旧 cfg.intraHigh/intraLow 兜底，仅采用经离群校验的真实夜盘高低点
       const stat = state.realIntraStats[state.ticker] || {};
       const isMorningUp = curP >= cfg.regClose;
-      const sOpen = parseFloat((cfg.regClose * (isMorningUp ? 0.992 : 1.008)).toFixed(2));
-      const s1030 = parseFloat(((cfg.regClose + vwap) * 0.5).toFixed(2));
-      const sPeak = parseFloat((stat.high && stat.high > curP * 1.005 ? stat.high : Math.max(cfg.intraHigh, vwap * (is3x ? 1.036 : 1.012))).toFixed(2));
-      const sDip  = parseFloat((stat.low && stat.low < curP * 0.995 ? stat.low : Math.min(cfg.intraLow, cfg.regClose * (is3x ? 0.982 : 0.994))).toFixed(2));
+      const maxDrift = is3x ? 0.18 : 0.06;
+      const validHigh = (stat.high && stat.high >= curP * 0.995 && stat.high <= curP * (1 + maxDrift)) ? stat.high : 0;
+      const validLow  = (stat.low  && stat.low  <= curP * 1.005 && stat.low  >= Math.min(curP, cfg.regClose) * (1 - maxDrift)) ? stat.low : 0;
+
+      const sPeak = parseFloat((validHigh ? Math.max(curP, validHigh) : Math.max(curP, vwap) * (is3x ? 1.015 : 1.004)).toFixed(2));
+      const sDip  = parseFloat((validLow  ? Math.min(curP, validLow)  : Math.min(curP, vwap) * (is3x ? 0.982 : 0.994)).toFixed(2));
+      const sStartUp = parseFloat((sDip > cfg.regClose * 1.005 ? (sDip * 0.7 + vwap * 0.3) : cfg.regClose).toFixed(2));
+      const sStartDn = parseFloat((sPeak < cfg.regClose * 0.995 ? (sPeak * 0.7 + vwap * 0.3) : cfg.regClose).toFixed(2));
+      const sMidUp = parseFloat(((sDip + vwap) * 0.5).toFixed(2));
+      const sMidDn = parseFloat(((sPeak + vwap) * 0.5).toFixed(2));
 
       const realAnchors = isMorningUp
-        ? [[0, sDip], [0.35, cfg.regClose], [1.0, s1030], [1.65, sPeak], [2.0, parseFloat(((sPeak * 0.35 + vwap * 0.65)).toFixed(2))], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 1.002], [6.0, curP]]
-        : [[0, sOpen], [0.35, cfg.regClose * 1.006], [1.0, s1030], [1.65, sDip], [2.0, (sDip + vwap) * 0.5], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 0.998], [6.0, curP]];
+        ? [[0, sStartUp], [0.45, sDip], [1.0, sMidUp], [1.55, sPeak], [2.1, parseFloat((sPeak * 0.35 + vwap * 0.65).toFixed(2))], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 1.002], [6.0, curP]]
+        : [[0, sStartDn], [0.45, sPeak], [1.0, sMidDn], [1.55, sDip], [2.1, parseFloat((sDip * 0.35 + vwap * 0.65).toFixed(2))], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 0.998], [6.0, curP]];
 
       const pastPts = [];
       for (const [aIdx, aVal] of realAnchors) {
@@ -1720,7 +1729,151 @@
       const elSliderVal = document.getElementById("sliderPriceVal");
       if (elSliderVal) elSliderVal.innerHTML = `$${curP.toFixed(2)}`;
 
+      // V6.5.3: 极简 SPLV/SOXX 跷跷板实时预警胶囊 (自动联动周期超跌禁空保护，防地板割肉)
+      if (!window.__v653SeesawHooked) {
+        window.__v653SeesawHooked = true;
+        const _origFetch = window.fetch.bind(window);
+        window.fetch = async function(...args) {
+          const resp = await _origFetch(...args);
+          try {
+            const u = String(args[0] || "");
+            if (u.includes("quotes_all") || u.includes("live_quotes")) {
+              resp.clone().json().then(d => {
+                if (d && d.risk_meta && d.risk_meta.splv_seesaw) {
+                  state.splvSeesaw = d.risk_meta.splv_seesaw;
+                  const g = document.getElementById("gammaBanner");
+                  if (g && typeof window.__renderSplvSeesawBar === "function") {
+                    window.__renderSplvSeesawBar(g, window.__lastOversoldGuard || false);
+                  }
+                }
+              }).catch(() => {});
+            }
+          } catch (e) {}
+          return resp;
+        };
+        window.__renderSplvSeesawBar = function(gammaEl, oversoldGuard) {
+          if (!gammaEl) return;
+          let bar = document.getElementById("splvSeesawBanner");
+          if (!bar) {
+            bar = document.createElement("div");
+            bar.id = "splvSeesawBanner";
+            gammaEl.insertAdjacentElement("afterend", bar);
+          }
+          const ss = state.splvSeesaw;
+          if (!ss || !ss.ready) {
+            bar.className = "mt-2 px-3.5 py-2 rounded-2xl border bg-slate-50 border-slate-200 text-slate-600 flex flex-wrap items-center justify-between gap-2 font-mono text-xs";
+            bar.innerHTML = `<span class="font-bold">🛡️ SPLV/SOXX 跷跷板雷达</span><span class="text-[11px] opacity-80">${ss ? ss.title : "等待本地 OpenD (8888) 推送..."}</span>`;
+            return;
+          }
+          let lvl = ss.level;
+          let title = ss.title;
+          let detail = ss.detail;
+          // 瑕疵2修复：若周期系统已触发超跌负乖离禁空保护，将追空预警降级为地板观望
+          if ((lvl === "trend_warn" || lvl === "day_div" || lvl === "watch_warn") && oversoldGuard) {
+            lvl = "oversold_hold";
+            title = "🛡️ 跷跷板高位 · 已触发周期超跌地板过滤";
+            detail = `Ratio Z=${ss.ratio_z20 >= 0 ? "+" : ""}${Number(ss.ratio_z20).toFixed(2)}σ 虽处警戒区，但现价已触及周期禁空保护线，禁止地板追空`;
+          }
+          const styles = {
+            left_l4:       "bg-teal-50 border-teal-500 text-teal-950 ring-2 ring-teal-400",
+            left_l2:       "bg-cyan-50 border-cyan-500 text-cyan-950 ring-1 ring-cyan-300",
+            double_kill:   "bg-purple-50 border-purple-500 text-purple-950 ring-1 ring-purple-300",
+            trend_warn:    "bg-rose-50 border-rose-500 text-rose-950 ring-1 ring-rose-300",
+            day_div:       "bg-amber-50 border-amber-400 text-amber-950",
+            watch_warn:    "bg-orange-50 border-orange-300 text-orange-950",
+            oversold_hold: "bg-indigo-50 border-indigo-300 text-indigo-950",
+            rev_buy:       "bg-emerald-50 border-emerald-500 text-emerald-950 ring-1 ring-emerald-300",
+            neutral:       "bg-slate-50 border-slate-200 text-slate-700"
+          };
+          bar.className = `mt-2 px-3.5 py-2.5 rounded-2xl border ${styles[lvl] || styles.neutral} flex flex-col gap-2 shadow-sm font-mono text-xs`;
+          const zStr = `${ss.ratio_z20 >= 0 ? "+" : ""}${Number(ss.ratio_z20).toFixed(2)}σ`;
+          const cStr = `${ss.corr20 >= 0 ? "+" : ""}${Number(ss.corr20).toFixed(2)}`;
+          const pChg = `${ss.splv_chg_pct >= 0 ? "+" : ""}${Number(ss.splv_chg_pct).toFixed(2)}%`;
+
+          const pins = ss.pin_targets || {};
+          const pinSyms = ["SOXX", "QQQ", "SPY"].filter(s => pins[s]);
+          const pinHtml = pinSyms.length ? `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 pt-2 border-t border-black/10">
+              ${pinSyms.map(sym => {
+                const p = pins[sym];
+                const badgeMap = {
+                  knife_ex:  "bg-rose-600 text-white",
+                  knife_rf:  "bg-rose-600 text-white",
+                  hold_ex:   "bg-teal-600 text-white",
+                  hold_rf:   "bg-emerald-600 text-white",
+                  reclaimed: "bg-emerald-600 text-white",
+                  watch_ex:  "bg-amber-500 text-white",
+                  watch_rf:  "bg-amber-500 text-white",
+                  above:     "bg-black/5 text-slate-700"
+                };
+                const cardMap = {
+                  knife_ex:  "bg-rose-50/75 border-rose-400",
+                  knife_rf:  "bg-rose-50/75 border-rose-300",
+                  hold_ex:   "bg-teal-50/60 border-teal-400",
+                  hold_rf:   "bg-emerald-50/60 border-emerald-400",
+                  reclaimed: "bg-emerald-50/40 border-emerald-300",
+                  watch_ex:  "bg-amber-50/60 border-amber-300",
+                  watch_rf:  "bg-amber-50/60 border-amber-300",
+                  above:     "bg-white/75 border-black/10"
+                };
+                const isTriggered = p.status !== "above";
+                const badgeCls = badgeMap[p.status] || "bg-slate-200 text-slate-700";
+                const cardCls = cardMap[p.status] || "bg-white/85 border-slate-200";
+                const signalBanner = isTriggered
+                  ? `<div class="w-full px-2.5 py-1.5 rounded-lg text-xs font-extrabold flex items-center justify-between shadow-sm ${badgeCls}">
+                       <span class="flex items-center gap-1.5"><span class="inline-block w-2 h-2 rounded-full bg-white animate-pulse"></span>${p.status_txt}</span>
+                       <span class="text-[10px] opacity-90">已触发</span>
+                     </div>`
+                  : `<div class="w-full px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center justify-between bg-slate-100 text-slate-600 border border-slate-200/80">
+                       <span>⚪ 信号: 区间上方·等待回踩</span>
+                       <span class="text-slate-800">${p.status_txt}</span>
+                     </div>`;
+                const intraFoot = (p.day_low > 0)
+                  ? `<div class="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-black/5">
+                       <span>日低 $${Number(p.day_low).toFixed(2)} (${p.bounce_pct >= 0 ? "+" : ""}${Number(p.bounce_pct).toFixed(2)}%)</span>
+                       <span class="${p.above_vwap ? "text-emerald-700 font-bold" : "text-rose-600 font-bold"}">${p.day_vwap > 0 ? (p.above_vwap ? "▲站上VWAP $" : "▼低于VWAP $") + Number(p.day_vwap).toFixed(2) : ""}</span>
+                     </div>`
+                  : "";
+                return `
+                  <div class="p-2.5 rounded-xl border ${cardCls} flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between gap-1">
+                      <span class="text-sm font-extrabold text-slate-900">${sym}</span>
+                      <span class="text-sm font-extrabold text-slate-800">$${Number(p.price).toFixed(2)}</span>
+                    </div>
+                    ${signalBanner}
+                    <div class="flex items-center justify-between text-[11px] text-slate-700">
+                      <span>🎯 ${p.rf_label}</span>
+                      <span class="font-bold text-emerald-700">$${Number(p.rf_low).toFixed(2)} ~ $${Number(p.rf_high).toFixed(2)}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] text-slate-700">
+                      <span>🩸 极限血筹</span>
+                      <span class="font-bold text-teal-800">$${Number(p.ex_low).toFixed(2)} ~ $${Number(p.ex_high).toFixed(2)}</span>
+                    </div>
+                    ${intraFoot}
+                  </div>`;
+              }).join("")}
+            </div>` : "";
+
+          bar.innerHTML = `
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-extrabold">${title}</span>
+                <span class="text-[11px] opacity-85">${detail}</span>
+              </div>
+              <div class="flex items-center gap-2 text-[11px] font-bold flex-wrap">
+                <span class="px-2 py-0.5 rounded-md bg-white/70 border border-black/10">Ratio Z: ${zStr}</span>
+                <span class="px-2 py-0.5 rounded-md bg-white/70 border border-black/10">20D相关: ${cStr}</span>
+                <span class="px-2 py-0.5 rounded-md bg-white/70 border border-black/10">SPLV: $${Number(ss.splv_price).toFixed(2)} (${pChg})</span>
+                <span class="px-2 py-0.5 rounded-md bg-black/5 text-[10px]">${ss.mode_tag}</span>
+              </div>
+            </div>${pinHtml}`;
+        };
+      }
       const elGamma = document.getElementById("gammaBanner");
+      window.__lastOversoldGuard = Boolean((typeof isShortFrozen !== "undefined" && isShortFrozen) || (gammaStatus && gammaStatus.badge && gammaStatus.badge.includes("禁空保护")));
+      if (elGamma && typeof window.__renderSplvSeesawBar === "function") {
+        window.__renderSplvSeesawBar(elGamma, window.__lastOversoldGuard);
+      }
       if (elGamma) {
         elGamma.className = `p-3.5 rounded-2xl border ${gammaStatus.bg} flex flex-wrap items-center justify-between gap-2 shadow-sm font-mono text-xs`;
         elGamma.innerHTML = `
@@ -2269,6 +2422,10 @@
     setInterval(syncQuotes, 5000);
     syncQuotes();
   </script>
+
+
+
+
 <!-- V65_RADAR_START -->
 <script id="v65-liquidation-radar">
 (function() {
@@ -2280,13 +2437,14 @@
   }
   function saveManualGex(sym, obj) {
     const all = loadManualGex();
-    all[sym] = obj;
+    if (!obj || (!obj.putWall && !obj.zeroGamma && !obj.secPut)) delete all[sym];
+    else all[sym] = obj;
     localStorage.setItem(LS_KEY, JSON.stringify(all));
   }
 
   function getActiveTicker() {
     if (typeof state !== "undefined" && state.ticker) return state.ticker;
-    const activeBtn = document.querySelector('button.bg-slate-900, button[class*="bg-slate-900"]');
+    const activeBtn = document.querySelector('button.bg-slate-900, button.bg-purple-800, button[class*="bg-slate-900"]');
     if (activeBtn) {
       const m = activeBtn.textContent.match(/\b(SOXL|SOXS|TQQQ|SQQQ|QQQ|SPY|SOXX)\b/);
       if (m) return m[1];
@@ -2294,38 +2452,115 @@
     return "SOXL";
   }
 
-  function ensurePanel() {
-    let el = document.getElementById("v65-radar-panel");
-    if (el) return el;
-    el = document.createElement("div");
-    el.id = "v65-radar-panel";
-    el.className = "max-w-7xl mx-auto my-3 px-4";
-    const root = document.getElementById("app") || document.body;
-    if (root.firstChild) root.insertBefore(el, root.firstChild);
-    else root.appendChild(el);
-    return el;
-  }
-
   let lastPayload = null;
   let lastTriggerHash = "";
 
-  function renderRadar() {
-    const panel = ensurePanel();
+  function ensureExternalPanel() {
+    let el = document.getElementById("v65-radar-panel");
+    if (el) return el;
+
+    el = document.createElement("div");
+    el.id = "v65-radar-panel";
+    el.className = "max-w-7xl mx-auto mt-3 mb-1 px-4 relative z-40";
+    el.innerHTML = `
+      <div id="v65-card-wrap" class="rounded-2xl border-2 border-indigo-200 bg-white shadow-sm p-4 transition-all">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div id="v65-header-left" class="flex flex-wrap items-center gap-2"></div>
+          <button id="v65-toggle-gex" type="button" class="text-xs px-3 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold cursor-pointer select-none">
+            ⚙️ 期权GEX校准
+          </button>
+        </div>
+        <div id="v65-live-body"></div>
+        <div id="v65-gex-editor" class="hidden mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2.5 text-xs bg-slate-50/80 p-3 rounded-xl">
+          <span id="v65-editor-label" class="font-bold text-slate-800">手动校准期权壁垒:</span>
+          <label class="flex items-center gap-1 font-semibold text-slate-700">看跌墙 $<input id="v65-in-pw" type="number" step="0.5" placeholder="如 30" class="w-20 px-2 py-1 border border-slate-300 rounded font-mono bg-white text-slate-900"></label>
+          <label class="flex items-center gap-1 font-semibold text-slate-700">零Gamma $<input id="v65-in-zg" type="number" step="0.5" placeholder="如 38" class="w-20 px-2 py-1 border border-slate-300 rounded font-mono bg-white text-slate-900"></label>
+          <label class="flex items-center gap-1 font-semibold text-slate-700">次级看跌柱 $<input id="v65-in-sp" type="number" step="0.5" placeholder="如 28" class="w-20 px-2 py-1 border border-slate-300 rounded font-mono bg-white text-slate-900"></label>
+          <button id="v65-save-gex" type="button" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 cursor-pointer">保存并生效</button>
+          <button id="v65-clear-gex" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-semibold hover:bg-slate-300 cursor-pointer">重置自动</button>
+          <span id="v65-save-msg" class="text-emerald-600 font-bold"></span>
+        </div>
+      </div>
+    `;
+
+    // 核心修复：挂载在 #app 外部前面，永远不会被 #app.innerHTML 重绘销毁！
+    const appEl = document.getElementById("app");
+    if (appEl && appEl.parentNode) {
+      appEl.parentNode.insertBefore(el, appEl);
+    } else {
+      document.body.insertBefore(el, document.body.firstChild);
+    }
+
+    const toggleBtn = el.querySelector("#v65-toggle-gex");
+    const editor = el.querySelector("#v65-gex-editor");
+    const saveBtn = el.querySelector("#v65-save-gex");
+    const clearBtn = el.querySelector("#v65-clear-gex");
+    const saveMsg = el.querySelector("#v65-save-msg");
+
+    toggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const sym = getActiveTicker();
+      const mGex = loadManualGex()[sym] || {};
+      el.querySelector("#v65-editor-label").textContent = `${sym} 期权GEX手动校准 (浏览器永久记忆):`;
+      if (editor.classList.contains("hidden")) {
+        el.querySelector("#v65-in-pw").value = mGex.putWall || "";
+        el.querySelector("#v65-in-zg").value = mGex.zeroGamma || "";
+        el.querySelector("#v65-in-sp").value = mGex.secPut || "";
+        saveMsg.textContent = "";
+        editor.classList.remove("hidden");
+      } else {
+        editor.classList.add("hidden");
+      }
+    });
+
+    saveBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const sym = getActiveTicker();
+      saveManualGex(sym, {
+        putWall: Number(el.querySelector("#v65-in-pw").value) || 0,
+        zeroGamma: Number(el.querySelector("#v65-in-zg").value) || 0,
+        secPut: Number(el.querySelector("#v65-in-sp").value) || 0
+      });
+      saveMsg.textContent = "✅ 已保存生效";
+      renderLiveMetrics();
+      setTimeout(() => { editor.classList.add("hidden"); saveMsg.textContent = ""; }, 600);
+    });
+
+    clearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const sym = getActiveTicker();
+      saveManualGex(sym, {});
+      el.querySelector("#v65-in-pw").value = "";
+      el.querySelector("#v65-in-zg").value = "";
+      el.querySelector("#v65-in-sp").value = "";
+      saveMsg.textContent = "已恢复自动模式";
+      renderLiveMetrics();
+    });
+
+    return el;
+  }
+
+  function renderLiveMetrics() {
+    const el = ensureExternalPanel();
     const sym = getActiveTicker();
     const is3x = ["SOXL","SOXS","TQQQ","SQQQ"].includes(sym);
     const isInv = ["SOXS","SQQQ"].includes(sym);
     const q = (lastPayload && lastPayload.quotes && lastPayload.quotes[sym]) || null;
     const rmeta = (lastPayload && lastPayload.risk_meta) || {};
+    const isWeekend = Boolean(rmeta.is_weekend);
     const spyChg = rmeta.spy_chg_pct ?? 0;
 
-    const manualAll = loadManualGex();
-    const mGex = manualAll[sym] || {};
+    const mGex = loadManualGex()[sym] || {};
     const apiGex = (q && q.gex) || {};
-    const useManual = (mGex.putWall > 0 || mGex.zeroGamma > 0);
+    const useManual = (mGex.putWall > 0 || mGex.zeroGamma > 0 || mGex.secPut > 0);
     const putWall = useManual ? Number(mGex.putWall || 0) : Number(apiGex.put_wall || 0);
     const zeroGamma = useManual ? Number(mGex.zeroGamma || 0) : Number(apiGex.zero_gamma || 0);
     const secPut = useManual ? Number(mGex.secPut || 0) : Number(apiGex.secondary_put_wall || 0);
-    const gexSource = useManual ? "手动校准" : (apiGex.source === "opend_auto" ? `OpenD自动(${apiGex.expiry||"近期"})` : "待校准");
+    const gexBtnTag = useManual ? "已手动校准" : (apiGex.source === "opend_auto" ? `OpenD自动 ${apiGex.expiry||""}` : "点此手动校准");
+    const gexDiag = useManual ? "手动壁垒生效中" : (apiGex.reason || "等待OpenD返回");
 
     const curP = q ? q.price : 0;
     const curVwap = q ? q.vwap : 0;
@@ -2334,18 +2569,19 @@
     const chgPct = q ? q.chg_pct : 0;
     const aumPct = q ? q.aum_turnover_pct : 0;
     const turnYi = q ? (q.turnover_usd / 1e8).toFixed(2) : "--";
+    const aumYi = q ? (q.aum_usd / 1e8).toFixed(1) : "--";
     const amp5d = q ? q.amp_5d_pct : (is3x ? 18.5 : 4.2);
     const dynDecay = q ? q.dyn_beta_decay : (is3x ? 0.30 : 0.0);
     const low52 = q ? q.low_52w : 0;
 
-    // 核心清算红灯判定 (5维微观共振)
-    const flagAum = aumPct >= 80;
-    const flagAumExtreme = aumPct >= 100;
+    const flagAum = !isInv && (aumPct >= 80);
+    const flagAumExtreme = !isInv && (aumPct >= 100);
+    const flagInvFrenzy = isInv && (aumPct >= 250);
     const flagSpy = spyChg <= -2.0;
-    const flagPutBreach = (putWall > 0 && curP > 0 && curP < putWall && (zeroGamma === 0 || curP < zeroGamma));
-    const flagBreakdown = (curP > 0 && openP > 0 && curP < openP && curP < curVwap * 0.985 && chgPct <= (is3x ? -12 : -4));
-    const flagRebalance = Boolean(rmeta.is_rebalance_win && is3x && Math.abs(chgPct) >= 15);
-    const flagMarginWin = Boolean(rmeta.is_margin_call_win && chgPct <= (is3x ? -12 : -4));
+    const flagPutBreach = (!isInv && putWall > 0 && curP > 0 && curP < putWall && (zeroGamma === 0 || curP < zeroGamma));
+    const flagBreakdown = (!isInv && curP > 0 && openP > 0 && curP < openP && curP < curVwap * 0.985 && chgPct <= (is3x ? -12 : -4));
+    const flagRebalance = Boolean(!isWeekend && rmeta.is_rebalance_win && is3x && Math.abs(chgPct) >= 15);
+    const flagMarginWin = Boolean(!isWeekend && rmeta.is_margin_call_win && chgPct <= (is3x ? -12 : -4));
 
     let redCount = 0;
     if (flagAum) redCount++;
@@ -2354,40 +2590,33 @@
     if (flagBreakdown) redCount++;
     if (flagRebalance) redCount++;
 
-    const liquidationActive = (!isInv && redCount >= 2);
+    const liquidationActive = (!isWeekend && !isInv && redCount >= 2);
+    window.__V65_RISK_STATE__[sym] = { dynBetaDecay: dynDecay, liquidationActive, redCount, putWall, zeroGamma, aumPct };
 
-    // 写入全局状态供第二层动态走廊调用
-    window.__V65_RISK_STATE__[sym] = {
-      dynBetaDecay: dynDecay,
-      liquidationActive,
-      redCount,
-      putWall,
-      zeroGamma,
-      aumPct
-    };
-
-    // 状态变化时自动刷新主看板曲线
     const curHash = `${sym}_${Math.round(dynDecay*100)}_${liquidationActive}`;
     if (curHash !== lastTriggerHash && typeof render === "function") {
       lastTriggerHash = curHash;
       try { render(); } catch(e) {}
     }
 
-    // 盘口右侧扳机判定 ("周期定方向，盘口定扳机")
     const aboveVwap = (curP > 0 && curVwap > 0 && curP >= curVwap);
     const offLowPct = (dayLow > 0 && curP > 0) ? (((curP - dayLow) / dayLow) * 100) : 0;
     let triggerText = "🟡 等待盘口确认：观察是否站稳 VWAP 且不再创日内新低";
     let triggerCls = "bg-amber-50 border-amber-300 text-amber-900";
+
     if (!q) {
-      triggerText = "⏳ 正在连接本地 OpenD V6.5 实时风控引擎 (127.0.0.1:8888)...";
+      triggerText = "⏳ 正在连接本地 OpenD V6.5.2 风控引擎 (127.0.0.1:8888)...";
       triggerCls = "bg-slate-50 border-slate-300 text-slate-700";
+    } else if (isWeekend) {
+      triggerText = `🌙 周末休市复盘态（锚定周五收盘/盘后 $${curP} | 周五SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%）：已锁定周五有效数据，周一 09:00 亚盘开盘自动恢复实时熔断监测！`;
+      triggerCls = "bg-indigo-50 border-indigo-300 text-indigo-900";
     } else if (flagRebalance) {
-      triggerText = `🚨 尾盘 3x 机械再平衡高危窗 (ET ${rmeta.et_time})：单日跌 ${chgPct}% 触发基金强制卖盘，严禁提前接刀，等 ET 15:55 后再动手！`;
+      triggerText = `🚨 尾盘 3x 机械再平衡高危窗 (ET ${rmeta.et_time})：单日波动 ${chgPct}% 触发基金强制调仓，严禁提前接刀，等 ET 15:55 后再动手！`;
       triggerCls = "bg-rose-100 border-rose-500 text-rose-900";
     } else if (liquidationActive) {
       const cushion = is3x ? "-15% ~ -20%" : "-5%";
       const estFloor = curP > 0 ? `$${(curP * (is3x ? 0.85 : 0.95)).toFixed(2)}` : "--";
-      triggerText = `🛑 极端清算熔断激活 (${redCount}/5 红灯)：已自动追加 ${cushion} 冗余安全垫 (防插针至 ${estFloor})，暂停左侧接飞刀，等强平结束并放量站回 VWAP ($${curVwap})！`;
+      triggerText = `🛑 极端清算熔断激活 (${redCount}/5 红灯)：已追加 ${cushion} 冗余安全垫 (防插针至 ${estFloor})，暂停左侧接飞刀，等强平结束并站回 VWAP ($${curVwap})！`;
       triggerCls = "bg-red-100 border-red-500 text-red-900";
     } else if (aboveVwap && offLowPct >= 1.5) {
       triggerText = `✅ 盘口右侧扳机就绪：现价 $${curP} 已站稳 VWAP ($${curVwap}) 且脱离日内低点 +${offLowPct.toFixed(1)}%，清算风险解除，可按周期计划执行！`;
@@ -2398,92 +2627,59 @@
     }
 
     const vwapDiffPct = (curP > 0 && curVwap > 0) ? (((curP - curVwap) / curVwap) * 100).toFixed(2) : "0.00";
+    el.querySelector("#v65-card-wrap").className = `rounded-2xl border-2 ${liquidationActive ? 'border-red-500 bg-red-50/40' : 'border-indigo-200 bg-white'} shadow-sm p-4 transition-all`;
 
-    panel.innerHTML = `
-      <div class="rounded-2xl border-2 ${liquidationActive ? 'border-red-500 bg-red-50/40' : 'border-indigo-200 bg-white'} shadow-sm p-4 transition-all">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${liquidationActive ? 'bg-red-600 text-white animate-pulse' : 'bg-indigo-600 text-white'}">
-              ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.5 微结构风控雷达'}
-            </span>
-            <span class="font-bold text-slate-800 text-sm">${sym} 实时监测</span>
-            <span class="text-xs text-slate-500 font-mono">美东 ${rmeta.et_time || '--:--'} | 标普SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</span>
-          </div>
-          <button id="v65-toggle-gex" class="text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold">
-            ⚙️ 期权GEX校准 (${gexSource})
-          </button>
+    el.querySelector("#v65-header-left").innerHTML = `
+      <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${liquidationActive ? 'bg-red-600 text-white animate-pulse' : 'bg-indigo-600 text-white'}">
+        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.5.2 微结构风控雷达'}
+      </span>
+      <span class="font-bold text-slate-800 text-sm">${sym} ${isWeekend ? '周末复盘' : '实时监测'} ($${curP || '--'})</span>
+      <span class="text-xs text-slate-500 font-mono">美东 ${rmeta.et_time || '--:--'} | 标普SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</span>
+    `;
+    el.querySelector("#v65-toggle-gex").textContent = `⚙️ 期权GEX校准 (${gexBtnTag})`;
+
+    const turnTitle = isInv ? "反向短线换手 / AUM" : (isWeekend ? "上交易日成交 / AUM" : "成交额 / AUM 换手");
+    const turnTag = isInv
+      ? (flagInvFrenzy ? "🔥空头情绪过热" : "反向常规换手")
+      : (flagAumExtreme ? "🔥极值出清" : (flagAum ? "⚠️清算预警" : "正常"));
+    const turnBorder = isInv
+      ? (flagInvFrenzy ? "border-purple-400 bg-purple-50/60" : "border-slate-200 bg-slate-50/60")
+      : (flagAumExtreme ? "border-red-500 bg-red-50" : (flagAum ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-slate-50/60"));
+
+    el.querySelector("#v65-live-body").innerHTML = `
+      <div class="rounded-xl border px-3 py-2 text-xs font-bold mb-3 ${triggerCls}">${triggerText}</div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2.5 text-xs">
+        <div class="rounded-xl border p-2.5 ${is3x && dynDecay >= 0.25 ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-slate-50/60'}">
+          <div class="text-slate-500 mb-0.5">动态波动率磨损</div>
+          <div class="font-mono font-bold text-sm text-slate-900">${(dynDecay * 100).toFixed(1)}% <span class="text-[10px] font-normal text-slate-500">(原12.5%)</span></div>
+          <div class="text-[11px] text-slate-600 mt-0.5">5日均振幅: ${amp5d}%</div>
         </div>
 
-        <div class="rounded-xl border px-3 py-2 text-xs font-bold mb-3 ${triggerCls}">
-          ${triggerText}
+        <div class="rounded-xl border p-2.5 ${turnBorder}">
+          <div class="text-slate-500 mb-0.5">${turnTitle}</div>
+          <div class="font-mono font-bold text-sm ${flagAum ? 'text-red-600' : (flagInvFrenzy ? 'text-purple-700' : 'text-slate-900')}">${aumPct}%</div>
+          <div class="text-[11px] text-slate-600 mt-0.5">$${turnYi}亿 / AUM $${aumYi}亿 ${turnTag}</div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-2.5 text-xs">
-          <div class="rounded-xl border p-2.5 ${is3x && dynDecay >= 0.25 ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-slate-50/60'}">
-            <div class="text-slate-500 mb-0.5">动态波动率磨损</div>
-            <div class="font-mono font-bold text-sm text-slate-900">${(dynDecay * 100).toFixed(1)}% <span class="text-[10px] font-normal text-slate-500">(原12.5%)</span></div>
-            <div class="text-[11px] text-slate-600 mt-0.5">5日均振幅: ${amp5d}%</div>
-          </div>
-
-          <div class="rounded-xl border p-2.5 ${flagAumExtreme ? 'border-red-500 bg-red-50' : (flagAum ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-slate-50/60')}">
-            <div class="text-slate-500 mb-0.5">成交额 / AUM 换手</div>
-            <div class="font-mono font-bold text-sm ${flagAum ? 'text-red-600' : 'text-slate-900'}">${aumPct}%</div>
-            <div class="text-[11px] text-slate-600 mt-0.5">成交 $${turnYi}亿 ${flagAumExtreme ? '🔥极值出清' : (flagAum ? '⚠️清算预警' : '正常')}</div>
-          </div>
-
-          <div class="rounded-xl border p-2.5 ${flagPutBreach ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/60'}">
-            <div class="text-slate-500 mb-0.5">期权 GEX 看跌墙</div>
-            <div class="font-mono font-bold text-sm ${flagPutBreach ? 'text-red-600' : 'text-slate-900'}">${putWall > 0 ? '$' + putWall : '未设定'}</div>
-            <div class="text-[11px] text-slate-600 mt-0.5">零G:${zeroGamma > 0 ? '$'+zeroGamma : '--'} ${flagPutBreach ? '🚨已击穿助跌' : (secPut > 0 ? '次柱:$'+secPut : '')}</div>
-          </div>
-
-          <div class="rounded-xl border p-2.5 ${flagSpy ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/60'}">
-            <div class="text-slate-500 mb-0.5">宏观共振 & 52周低</div>
-            <div class="font-mono font-bold text-sm ${flagSpy ? 'text-red-600' : 'text-slate-900'}">SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</div>
-            <div class="text-[11px] text-slate-600 mt-0.5">52W低:$${low52 || '--'} ${flagSpy ? '🚨共振踩踏' : '稳定'}</div>
-          </div>
-
-          <div class="rounded-xl border p-2.5 ${aboveVwap ? 'border-emerald-400 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/60'}">
-            <div class="text-slate-500 mb-0.5">VWAP 扳机 & 再平衡</div>
-            <div class="font-mono font-bold text-sm ${aboveVwap ? 'text-emerald-700' : 'text-rose-600'}">${Number(vwapDiffPct) >= 0 ? '+' : ''}${vwapDiffPct}%</div>
-            <div class="text-[11px] text-slate-600 mt-0.5">${flagRebalance ? '🚨3x尾盘再平衡窗' : (rmeta.is_margin_call_win ? '⚠️午盘强平窗' : (aboveVwap ? '✅站稳均线' : '🔴均线反压'))}</div>
-          </div>
+        <div class="rounded-xl border p-2.5 ${flagPutBreach ? 'border-red-500 bg-red-50' : ((useManual || apiGex.source==='opend_auto') ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-200 bg-slate-50/60')}">
+          <div class="text-slate-500 mb-0.5">期权 GEX 看跌墙</div>
+          <div class="font-mono font-bold text-sm ${flagPutBreach ? 'text-red-600' : 'text-slate-900'}">${putWall > 0 ? '$' + putWall : '待校准'} ${zeroGamma > 0 ? '<span class="text-[11px] font-normal text-slate-600">零G:$'+zeroGamma+'</span>' : ''}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5 truncate" title="${gexDiag}">${flagPutBreach ? '🚨已击穿助跌' : (secPut > 0 ? '次柱:$'+secPut+' · ' : '') + gexDiag}</div>
         </div>
 
-        <div id="v65-gex-editor" class="hidden mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2 text-xs">
-          <span class="font-semibold text-slate-700">${sym} 手动校准期权壁垒 (留空恢复OpenD自动):</span>
-          <label class="flex items-center gap-1">看跌墙 $<input id="v65-in-pw" type="number" step="0.5" value="${mGex.putWall || ''}" placeholder="如 40" class="w-20 px-2 py-1 border rounded font-mono"></label>
-          <label class="flex items-center gap-1">零Gamma $<input id="v65-in-zg" type="number" step="0.5" value="${mGex.zeroGamma || ''}" placeholder="如 46.5" class="w-20 px-2 py-1 border rounded font-mono"></label>
-          <label class="flex items-center gap-1">次级看跌柱 $<input id="v65-in-sp" type="number" step="0.5" value="${mGex.secPut || ''}" placeholder="如 35" class="w-20 px-2 py-1 border rounded font-mono"></label>
-          <button id="v65-save-gex" class="px-3 py-1 rounded bg-indigo-600 text-white font-bold hover:bg-indigo-700">保存并立即监测</button>
-          <button id="v65-clear-gex" class="px-2.5 py-1 rounded bg-slate-200 text-slate-700 font-semibold hover:bg-slate-300">重置</button>
+        <div class="rounded-xl border p-2.5 ${flagSpy ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/60'}">
+          <div class="text-slate-500 mb-0.5">宏观共振 & 52周低</div>
+          <div class="font-mono font-bold text-sm ${flagSpy ? 'text-red-600' : 'text-slate-900'}">SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</div>
+          <div class="text-[11px] text-slate-600 mt-0.5">52W低:$${low52 || '--'} ${flagSpy ? '🚨大盘重挫' : '稳定'}</div>
+        </div>
+
+        <div class="rounded-xl border p-2.5 ${aboveVwap ? 'border-emerald-400 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/60'}">
+          <div class="text-slate-500 mb-0.5">VWAP 扳机 & 再平衡</div>
+          <div class="font-mono font-bold text-sm ${aboveVwap ? 'text-emerald-700' : 'text-rose-600'}">${Number(vwapDiffPct) >= 0 ? '+' : ''}${vwapDiffPct}%</div>
+          <div class="text-[11px] text-slate-600 mt-0.5">${isWeekend ? '🌙周末休市' : (flagRebalance ? '🚨3x尾盘再平衡窗' : (rmeta.is_margin_call_win ? '⚠️午盘强平窗' : (aboveVwap ? '✅站稳均线' : '🔴均线反压')))}</div>
         </div>
       </div>
     `;
-
-    const toggleBtn = document.getElementById("v65-toggle-gex");
-    const editor = document.getElementById("v65-gex-editor");
-    if (toggleBtn && editor) {
-      toggleBtn.onclick = () => editor.classList.toggle("hidden");
-    }
-    const saveBtn = document.getElementById("v65-save-gex");
-    if (saveBtn) {
-      saveBtn.onclick = () => {
-        saveManualGex(sym, {
-          putWall: Number(document.getElementById("v65-in-pw").value) || 0,
-          zeroGamma: Number(document.getElementById("v65-in-zg").value) || 0,
-          secPut: Number(document.getElementById("v65-in-sp").value) || 0
-        });
-        renderRadar();
-      };
-    }
-    const clearBtn = document.getElementById("v65-clear-gex");
-    if (clearBtn) {
-      clearBtn.onclick = () => {
-        saveManualGex(sym, {});
-        renderRadar();
-      };
-    }
   }
 
   async function pollV65() {
@@ -2491,17 +2687,20 @@
       const resp = await fetch("http://127.0.0.1:8888/api/quotes_all?t=" + Date.now(), { cache: "no-store" });
       if (resp.ok) {
         lastPayload = await resp.json();
-        renderRadar();
+        renderLiveMetrics();
       }
     } catch(e) {
-      renderRadar();
+      renderLiveMetrics();
     }
   }
 
-  // 监听标的切换按钮，点击后立刻刷新雷达对应标的
-  document.addEventListener("click", () => setTimeout(renderRadar, 120));
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.closest("#v65-radar-panel")) return;
+    setTimeout(renderLiveMetrics, 120);
+  });
+
   window.addEventListener("load", () => {
-    renderRadar();
+    renderLiveMetrics();
     pollV65();
     setInterval(pollV65, 3500);
   });

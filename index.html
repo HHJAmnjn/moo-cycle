@@ -503,7 +503,7 @@
       const isExtremeBarrierBreached = !cfg.isInverse && (spreadPct <= extremeThreshold);
       const isShortFrozen = !cfg.isInverse && (spreadPct <= freezeThreshold);
 
-      // V6.6.0 核心动态周期日内相位判决引擎（统一以零磨损1x母标定向：SOXX管SOXL/SOXS，QQQ管TQQQ/SQQQ，彻底杜绝母子走势打架）
+      // V6.6.1 核心动态周期日内相位判决引擎（统一以零磨损1x母标定向：SOXX管SOXL/SOXS，QQQ管TQQQ/SQQQ，彻底杜绝母子走势打架）
       const pairLongSym = (state.ticker === "SOXL" || state.ticker === "SOXS")
         ? "SOXX"
         : ((state.ticker === "TQQQ" || state.ticker === "SQQQ") ? "QQQ" : state.ticker);
@@ -623,7 +623,7 @@
         ? `正乖离 (+${spreadPct.toFixed(1)}%)`
         : `负乖离已收敛 (${spreadPct.toFixed(1)}%)`;
 
-      // V6.6.0：联动底层 SPLV/SOXX 跷跷板高胜率反攻/血筹信号，防止母子ETF方向打架与地板追空
+      // V6.6.1：联动底层 SPLV/SOXX 跷跷板高胜率反攻/血筹信号，防止母子ETF方向打架与地板追空
       const ssLvl = (state.splvSeesaw && state.splvSeesaw.ready) ? state.splvSeesaw.level : "";
       const isSemiLong = (state.ticker === "SOXX" || state.ticker === "SOXL");
       const isSeesawBullProtect = isSemiLong && (ssLvl === "rev_buy" || ssLvl === "left_l4" || ssLvl === "left_l2");
@@ -1486,17 +1486,66 @@
       const sMidUp = parseFloat(((sDip + vwap) * 0.5).toFixed(2));
       const sMidDn = parseFloat(((sPeak + vwap) * 0.5).toFixed(2));
 
-      const realAnchors = isMorningUp
-        ? [[0, sStartUp], [0.45, sDip], [1.0, sMidUp], [1.55, sPeak], [2.1, parseFloat((sPeak * 0.35 + vwap * 0.65).toFixed(2))], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 1.002], [6.0, curP]]
-        : [[0, sStartDn], [0.45, sPeak], [1.0, sMidDn], [1.55, sDip], [2.1, parseFloat((sDip * 0.35 + vwap * 0.65).toFixed(2))], [3.0, vwap], [4.0, (vwap + curP) * 0.5], [5.0, curP * 0.998], [6.0, curP]];
+      // V6.6.1 修复：08:00 严格锚定昨收基准，隔离 16:00 后盘前极值防“时空倒灌”改写亚盘，并记录真实实盘走过轨迹
+      const _trailDay = (typeof timeInfo !== "undefined" && timeInfo && timeInfo.realMmDd)
+        ? timeInfo.realMmDd
+        : new Date().toISOString().slice(0, 10);
+      const _trailKey = `moo_intra_trail_v1_${_trailDay}_${state.ticker}`;
+      let _liveTrail = [];
+      try {
+        const _saved = localStorage.getItem(_trailKey);
+        if (_saved) _liveTrail = JSON.parse(_saved);
+        if (!Array.isArray(_liveTrail)) _liveTrail = [];
+      } catch (e) { _liveTrail = []; }
 
-      const pastPts = [];
-      for (const [aIdx, aVal] of realAnchors) {
-        if (aIdx < nowFloatIdx - 0.12) {
-          pastPts.push([aIdx, parseFloat(aVal.toFixed(2))]);
+      if (state.isLive && nowFloatIdx >= 0.05 && nowFloatIdx <= 15.0 && curP > 0) {
+        const _idxR = parseFloat(nowFloatIdx.toFixed(2));
+        const _pR = parseFloat(curP.toFixed(2));
+        const _last = _liveTrail.length ? _liveTrail[_liveTrail.length - 1] : null;
+        if (!_last || _idxR > _last[0] + 0.06) {
+          _liveTrail.push([_idxR, _pR]);
+          if (_liveTrail.length > 150) _liveTrail = _liveTrail.slice(-150);
+          try { localStorage.setItem(_trailKey, JSON.stringify(_liveTrail)); } catch (e) {}
+        } else if (Math.abs(_idxR - _last[0]) <= 0.06 && _last[1] !== _pR) {
+          _liveTrail[_liveTrail.length - 1] = [_idxR, _pR];
+          try { localStorage.setItem(_trailKey, JSON.stringify(_liveTrail)); } catch (e) {}
         }
       }
-      pastPts.push([nowFloatIdx, curP]);
+
+      const pastPts = [[0, parseFloat(cfg.regClose.toFixed(2))]];
+      const _asiaTicks = _liveTrail.filter(pt => pt[0] > 0.05 && pt[0] <= 3.0 && pt[0] < nowFloatIdx - 0.06);
+      const _postTicks = _liveTrail.filter(pt => pt[0] > 3.0 && pt[0] < nowFloatIdx - 0.06);
+
+      if (_asiaTicks.length >= 2) {
+        _asiaTicks.forEach(pt => pastPts.push([pt[0], parseFloat(Number(pt[1]).toFixed(2))]));
+        if (nowFloatIdx > 3.08 && _asiaTicks[_asiaTicks.length - 1][0] < 2.92) {
+          pastPts.push([3.0, parseFloat(vwap.toFixed(2))]);
+        }
+      } else {
+        // 无亚盘录制缓存时，08:00-16:00 仅在昨收基准与真实VWAP间平滑过渡，严禁把16:00后盘前新低/新高倒灌进亚盘
+        const _asiaEnd = nowFloatIdx >= 3.0 ? vwap : curP;
+        const _aSpan = Math.max(Math.abs(_asiaEnd - cfg.regClose), cfg.regClose * 0.002);
+        const _asiaSynth = [
+          [0.8, parseFloat((cfg.regClose + (_asiaEnd - cfg.regClose) * 0.28 + _aSpan * 0.12).toFixed(2))],
+          [1.6, parseFloat((cfg.regClose + (_asiaEnd - cfg.regClose) * 0.58 - _aSpan * 0.10).toFixed(2))],
+          [2.3, parseFloat((cfg.regClose + (_asiaEnd - cfg.regClose) * 0.82 + _aSpan * 0.06).toFixed(2))],
+          [3.0, parseFloat(_asiaEnd.toFixed(2))]
+        ];
+        _asiaSynth.forEach(([aIdx, aVal]) => {
+          if (aIdx < nowFloatIdx - 0.08) pastPts.push([aIdx, aVal]);
+        });
+      }
+
+      if (nowFloatIdx > 3.08) {
+        if (_postTicks.length > 0) {
+          _postTicks.forEach(pt => pastPts.push([pt[0], parseFloat(Number(pt[1]).toFixed(2))]));
+        } else if (nowFloatIdx > 3.8) {
+          pastPts.push([parseFloat(((3.0 + nowFloatIdx) * 0.5).toFixed(2)), parseFloat(((vwap + curP) * 0.5).toFixed(2))]);
+        }
+      }
+      if (nowFloatIdx > 0.02) {
+        pastPts.push([nowFloatIdx, parseFloat(curP.toFixed(2))]);
+      }
 
       const fadePeak2315  = parseFloat(((microRes + majorSupLow) * 0.5).toFixed(2));
       const fadeMidTarget = parseFloat((Math.min(curP * (1 - 0.015 * ampUnit), vwap * (1 - 0.020 * ampUnit))).toFixed(2));
@@ -2807,7 +2856,7 @@
     let triggerCls = "bg-amber-50 border-amber-300 text-amber-900";
 
     if (!q) {
-      triggerText = "⏳ 正在连接本地 OpenD V6.6.0 风控引擎 (127.0.0.1:8888)...";
+      triggerText = "⏳ 正在连接本地 OpenD V6.6.1 风控引擎 (127.0.0.1:8888)...";
       triggerCls = "bg-slate-50 border-slate-300 text-slate-700";
     } else if (isWeekend) {
       triggerText = `🌙 周末休市复盘态（锚定周五收盘/盘后 $${curP} | 周五SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%）：已锁定周五有效数据，周一 09:00 亚盘开盘自动恢复实时熔断监测！`;
@@ -2833,7 +2882,7 @@
 
     el.querySelector("#v65-header-left").innerHTML = `
       <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${liquidationActive ? 'bg-red-600 text-white animate-pulse' : 'bg-indigo-600 text-white'}">
-        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.6.0 微结构风控雷达'}
+        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.6.1 微结构风控雷达'}
       </span>
       <span class="font-bold text-slate-800 text-sm">${sym} ${isWeekend ? '周末复盘' : '实时监测'} ($${curP || '--'})</span>
       <span class="text-xs text-slate-500 font-mono">美东 ${rmeta.et_time || '--:--'} | 标普SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</span>

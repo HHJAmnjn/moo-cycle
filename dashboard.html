@@ -2605,7 +2605,7 @@
     let triggerCls = "bg-amber-50 border-amber-300 text-amber-900";
 
     if (!q) {
-      triggerText = "⏳ 正在连接本地 OpenD V6.5.2 风控引擎 (127.0.0.1:8888)...";
+      triggerText = "⏳ 正在连接本地 OpenD V6.5.7 风控引擎 (127.0.0.1:8888)...";
       triggerCls = "bg-slate-50 border-slate-300 text-slate-700";
     } else if (isWeekend) {
       triggerText = `🌙 周末休市复盘态（锚定周五收盘/盘后 $${curP} | 周五SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%）：已锁定周五有效数据，周一 09:00 亚盘开盘自动恢复实时熔断监测！`;
@@ -2631,7 +2631,7 @@
 
     el.querySelector("#v65-header-left").innerHTML = `
       <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${liquidationActive ? 'bg-red-600 text-white animate-pulse' : 'bg-indigo-600 text-white'}">
-        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.5.2 微结构风控雷达'}
+        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.5.7 微结构风控雷达'}
       </span>
       <span class="font-bold text-slate-800 text-sm">${sym} ${isWeekend ? '周末复盘' : '实时监测'} ($${curP || '--'})</span>
       <span class="text-xs text-slate-500 font-mono">美东 ${rmeta.et_time || '--:--'} | 标普SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</span>

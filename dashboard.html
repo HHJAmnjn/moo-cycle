@@ -503,7 +503,7 @@
       const isExtremeBarrierBreached = !cfg.isInverse && (spreadPct <= extremeThreshold);
       const isShortFrozen = !cfg.isInverse && (spreadPct <= freezeThreshold);
 
-      // V6.6.1 核心动态周期日内相位判决引擎（统一以零磨损1x母标定向：SOXX管SOXL/SOXS，QQQ管TQQQ/SQQQ，彻底杜绝母子走势打架）
+      // V6.6.3 核心动态周期日内相位判决引擎（统一以零磨损1x母标定向：SOXX管SOXL/SOXS，QQQ管TQQQ/SQQQ，彻底杜绝母子走势打架）
       const pairLongSym = (state.ticker === "SOXL" || state.ticker === "SOXS")
         ? "SOXX"
         : ((state.ticker === "TQQQ" || state.ticker === "SQQQ") ? "QQQ" : state.ticker);
@@ -623,7 +623,7 @@
         ? `正乖离 (+${spreadPct.toFixed(1)}%)`
         : `负乖离已收敛 (${spreadPct.toFixed(1)}%)`;
 
-      // V6.6.1：联动底层 SPLV/SOXX 跷跷板高胜率反攻/血筹信号，防止母子ETF方向打架与地板追空
+      // V6.6.3：联动底层 SPLV/SOXX 跷跷板高胜率反攻/血筹信号，防止母子ETF方向打架与地板追空
       const ssLvl = (state.splvSeesaw && state.splvSeesaw.ready) ? state.splvSeesaw.level : "";
       const isSemiLong = (state.ticker === "SOXX" || state.ticker === "SOXL");
       const isSeesawBullProtect = isSemiLong && (ssLvl === "rev_buy" || ssLvl === "left_l4" || ssLvl === "left_l2");
@@ -720,15 +720,20 @@
         };
       }
 
-      const baseNowDate = timeInfo ? timeInfo.now : new Date();
-      const dtNode1 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 2)  : "11/21";
-      const dtNode2 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 7)  : "11/26";
-      const dtNode3 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 21) : "12/10";
-      const dtNode4 = state.tacticalMode === "auto" ? formatOffsetDate(baseNowDate, 39) : "12/28";
+      // V6.6.3 修复：第三层节点严格对齐真实周期模型日期 (11/26黄金坑 / 12/10波峰 / 12/28收官)，中继节点动态取未来最近拐点
+      const _ancDay = dayOf(state.anchorDt);
+      const dtNode1 = _ancDay < dayOf("11/20")
+        ? "11/20"
+        : (_ancDay < dayOf("11/25") ? "11/25"
+          : (_ancDay < dayOf("11/30") ? "11/30"
+            : (_ancDay < dayOf("12/03") ? "12/03" : "12/18")));
+      const dtNode2 = "11/26";
+      const dtNode3 = "12/10";
+      const dtNode4 = "12/28";
 
       const sysTrack = {
         pivot: curP * cfg.mmRadarRatios.pivot,
-        dt1: dtNode1, p1118: calcSysRev("11/20"),
+        dt1: dtNode1, p1118: calcSysRev(dtNode1),
         dt2: dtNode2, p1126: calcSysRev("11/26"),
         dt3: dtNode3, p1210: calcSysRev("12/10"),
         dt4: dtNode4, p1228: calcSysRev("12/28"),
@@ -739,7 +744,7 @@
       const dFactor = 1.0 - cfg.betaDecay;
       const lockedTrack = {
         pivot: curP * (is3x ? 0.945 : 0.988),
-        p1118: (getTheoAt(cfg.theoCurve, "11/20") * dFactor) * (is3x && !cfg.isInverse ? 0.955 : 1.0),
+        p1118: (getTheoAt(cfg.theoCurve, dtNode1) * dFactor) * (is3x && !cfg.isInverse ? 0.955 : 1.0),
         p1126: (getTheoAt(cfg.theoCurve, "11/26") * dFactor),
         p1210: (getTheoAt(cfg.theoCurve, "12/10") * dFactor) * (is3x && !cfg.isInverse ? 0.974 : 1.0),
         p1228: (getTheoAt(cfg.theoCurve, "12/28") * dFactor)
@@ -832,29 +837,32 @@
             const avgDailyMove = sumRet / Math.max(1, tail.length - 1);
             effBetaDecay = avgDailyMove <= 6 ? 0.125 : Math.min(0.35, 0.125 + ((avgDailyMove - 6) / 14) * 0.225);
           }
-          const decayProgress = Math.min(1.0, dInfo.calOffset / 7.0);
-          modelCenter = modelCenter * (1.0 - effBetaDecay * decayProgress);
+          // V6.6.3 修复：5日内仅计入合理的周度波动率磨损（上限6%），避免把月度磨损重复扣光导致SOXL假崩盘
+          const fiveDayDecay = Math.min(0.06, effBetaDecay * 0.18) * (step / 5.0);
+          modelCenter = modelCenter * (1.0 - fiveDayDecay);
         }
-        // 清算熔断激活时，自动叠加冗余安全垫 (1x母体 -5%, 3x杠杆 -17.5%)
-        if (v65State.liquidationActive && !cfg.isInverse) {
-          const liqExtra = is3x ? 0.175 : 0.05;
-          modelCenter = modelCenter * (1.0 - liqExtra * Math.min(1.0, step * 0.35));
+        // 清算熔断冗余垫仅在黄金坑落地前(<=11/26)生效，不压制黄金坑后的反弹
+        const isPostGoldenPit = mappedModelDay > dayOf("11/26");
+        if (v65State.liquidationActive && !cfg.isInverse && !isPostGoldenPit) {
+          const liqExtra = is3x ? 0.06 : 0.02;
+          modelCenter = modelCenter * (1.0 - liqExtra * Math.min(1.0, step * 0.5));
         }
 
         let microAdjustedP = modelCenter;
         if (isExtremeBarrierBreached) {
           const pulseRatio = Math.min(1.0, step * 0.24);
           microAdjustedP = curP + (activeTheoNow - curP) * pulseRatio;
-        } else if (!cfg.isInverse && curP < curVwap && !isShortFrozen) {
-          // 跌破VWAP且负乖离已收敛：T+1 不再错误往上拉，而是按向下均值回归并压制在VWAP下方
-          const vwapDrag = -Math.abs(curVwap - curP) * (0.14 + 0.04 * step);
-          microAdjustedP = Math.min(curP * (1 - 0.008 * step), modelCenter) + vwapDrag;
-        } else if (cfg.isInverse && curP >= curVwap) {
-          microAdjustedP = modelCenter * (1 + 0.006 * step);
+        } else if (!cfg.isInverse && curP < curVwap && !isShortFrozen && step === 1 && !isPostGoldenPit) {
+          // V6.6.3 修复：分时VWAP压制仅温和作用于 T+1，绝不强行压跌 T+2~T+5 黄金坑后的反弹主升
+          const vwapDrag = -Math.min(curP * 0.012, Math.abs(curVwap - curP) * 0.35);
+          microAdjustedP = modelCenter + vwapDrag;
+        } else if (cfg.isInverse && curP >= curVwap && step === 1 && !isPostGoldenPit) {
+          microAdjustedP = modelCenter * 1.006;
         }
 
-        const dailyCeiling = Math.max(microAdjustedP, modelCenter) * (1 + bandHalfWidth * (1 + step * 0.05));
-        const dailyFloor = Math.min(microAdjustedP, modelCenter) * (1 - bandHalfWidth * (1 + step * 0.05));
+        // V6.6.3 修复：天花板与底线严格围绕主推锚展开，彻底消除“主推跌、天花板涨”的逆向喇叭口
+        const dailyCeiling = microAdjustedP * (1 + bandHalfWidth * (1 + step * 0.05));
+        const dailyFloor = microAdjustedP * (1 - bandHalfWidth * (1 + step * 0.05));
         const gammaUpper = dailyCeiling * (is3x ? 1.018 : 1.006);
         const gammaLower = dailyFloor * (is3x ? 0.982 : 0.994);
 
@@ -878,6 +886,11 @@
           microDriverTag = cfg.isInverse
             ? "🎯 12/10波谷窗口：反向ETF分批低吸"
             : "💰 12/10跨年波峰窗：多单逢高兑现落袋";
+        } else if (isPostGoldenPit && mappedModelDay < dayOf("12/10")) {
+          // 11/27 黄金坑落地后至 12/10 波峰前：全市场同步进入主升修复窗
+          microDriverTag = cfg.isInverse
+            ? "🔴 黄金坑后正股反攻：反向ETF逢反抽离场/禁抄底"
+            : "🟢 黄金坑后主升修复：依托底线顺势回踩做多";
         } else if (!cfg.isInverse && (!m.isIntradayUp || m.pSlopePct < -0.5) && !isShortFrozen) {
           microDriverTag = step === 1
             ? (curP >= curVwap
@@ -886,7 +899,7 @@
             : "🔴 周期主跌浪：阶梯向下向黄金坑寻底";
         } else if (cfg.isInverse) {
           microDriverTag = !m.isIntradayUp
-            ? "🟠 镜像冲高洗盘：正股超跌反抽窗口，逢高锁利等回踩"
+            ? "🟠 镜像冲高洗盘：正股反攻窗口，逢高锁利/禁盲目接回"
             : (step === 1
               ? `🟣 镜像顺势推进：回踩 $${Math.max(curVwap * 0.985, dailyFloor).toFixed(2)} 低吸`
               : "🟣 镜像主升推进：依托走廊底线顺势持有");
@@ -1029,14 +1042,14 @@
       const histPts = cfg.hist.filter(d => dayOf(d[0]) < cutDay);
       histPts.push([state.anchorDt, curP]);
 
-      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/19","11/20","11/17","11/18","11/20","11/23","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
+      const futDates = ["11/06","11/09","11/10","11/11","11/12","11/13","11/16","11/17","11/18","11/19","11/20","11/23","11/25","11/26","11/30","12/03","12/07","12/10","12/14","12/18","12/23","12/28"]
         .filter(dt => dayOf(dt) > cutDay);
 
       const futSys = [[state.anchorDt, curP], ...futDates.map(dt => [dt, calcSysRev(dt)])];
 
       const dFactor = 1.0 - cfg.betaDecay;
       const futLocked = [[state.anchorDt, curP], ...futDates.map(dt => {
-        if (dt === "11/18") return [dt, lockedTrack.p1118];
+        if (dt === sysTrack.dt1) return [dt, lockedTrack.p1118];
         if (dt === "11/26") return [dt, lockedTrack.p1126];
         if (dt === "12/10") return [dt, lockedTrack.p1210];
         const baseT = getTheoAt(cfg.theoCurve, dt);
@@ -1087,14 +1100,20 @@
         }
       ];
 
+      // V6.6.3 修复：中继点改用动态坐标 xOf(sysTrack.dt1)，且仅在未来且与今日/11-26间距>2天时绘制，杜绝落到红线左侧或重叠遮挡
+      const _dt1Day = dayOf(sysTrack.dt1);
+      const _showDt1Badge = _dt1Day > cutDay && Math.abs(_dt1Day - cutDay) > 2 && Math.abs(_dt1Day - dayOf("11/26")) > 2;
+
       if (showSys) {
-        rawBoxes.push(
-          {
-            cx: xOf("11/18"), cy: y1Of(sysTrack.p1118),
-            bx: xOf("11/18") - 12, by: y1Of(sysTrack.p1118) - 28,
+        if (_showDt1Badge) {
+          rawBoxes.push({
+            cx: xOf(sysTrack.dt1), cy: y1Of(sysTrack.p1118),
+            bx: xOf(sysTrack.dt1) - 12, by: y1Of(sysTrack.p1118) - 28,
             w: 120, text: `${sysTrack.dt1}: $${sysTrack.p1118.toFixed(1)}`,
             borderCol: "#2563EB", textCol: "#1E40AF", dotR: 5
-          },
+          });
+        }
+        rawBoxes.push(
           {
             cx: xOf("11/26"), cy: y1Of(sysTrack.p1126),
             bx: xOf("11/26") + 22, by: y1Of(sysTrack.p1126) + (showLock ? -26 : 26),
@@ -1111,13 +1130,15 @@
       }
 
       if (showLock) {
-        rawBoxes.push(
-          {
-            cx: xOf("11/18"), cy: y1Of(lockedTrack.p1118),
-            bx: xOf("11/18") - 16, by: y1Of(lockedTrack.p1118) + 26,
+        if (_showDt1Badge) {
+          rawBoxes.push({
+            cx: xOf(sysTrack.dt1), cy: y1Of(lockedTrack.p1118),
+            bx: xOf(sysTrack.dt1) - 16, by: y1Of(lockedTrack.p1118) + 26,
             w: 118, text: `磨损中继:$${lockedTrack.p1118.toFixed(1)}`,
             borderCol: "#7C3AED", textCol: "#5B21B6", dotR: 4.5
-          },
+          });
+        }
+        rawBoxes.push(
           {
             cx: xOf("11/26"), cy: y1Of(lockedTrack.p1126),
             bx: xOf("11/26") + 18, by: y1Of(lockedTrack.p1126) + 28,
@@ -1486,7 +1507,7 @@
       const sMidUp = parseFloat(((sDip + vwap) * 0.5).toFixed(2));
       const sMidDn = parseFloat(((sPeak + vwap) * 0.5).toFixed(2));
 
-      // V6.6.1 修复：08:00 严格锚定昨收基准，隔离 16:00 后盘前极值防“时空倒灌”改写亚盘，并记录真实实盘走过轨迹
+      // V6.6.3 修复：08:00 严格锚定昨收基准，隔离 16:00 后盘前极值防“时空倒灌”改写亚盘，并记录真实实盘走过轨迹
       const _trailDay = (typeof timeInfo !== "undefined" && timeInfo && timeInfo.realMmDd)
         ? timeInfo.realMmDd
         : new Date().toISOString().slice(0, 10);
@@ -2856,7 +2877,7 @@
     let triggerCls = "bg-amber-50 border-amber-300 text-amber-900";
 
     if (!q) {
-      triggerText = "⏳ 正在连接本地 OpenD V6.6.1 风控引擎 (127.0.0.1:8888)...";
+      triggerText = "⏳ 正在连接本地 OpenD V6.6.3 风控引擎 (127.0.0.1:8888)...";
       triggerCls = "bg-slate-50 border-slate-300 text-slate-700";
     } else if (isWeekend) {
       triggerText = `🌙 周末休市复盘态（锚定周五收盘/盘后 $${curP} | 周五SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%）：已锁定周五有效数据，周一 09:00 亚盘开盘自动恢复实时熔断监测！`;
@@ -2882,7 +2903,7 @@
 
     el.querySelector("#v65-header-left").innerHTML = `
       <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${liquidationActive ? 'bg-red-600 text-white animate-pulse' : 'bg-indigo-600 text-white'}">
-        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.6.1 微结构风控雷达'}
+        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.6.3 微结构风控雷达'}
       </span>
       <span class="font-bold text-slate-800 text-sm">${sym} ${isWeekend ? '周末复盘' : '实时监测'} ($${curP || '--'})</span>
       <span class="text-xs text-slate-500 font-mono">美东 ${rmeta.et_time || '--:--'} | 标普SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</span>

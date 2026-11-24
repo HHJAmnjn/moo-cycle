@@ -1737,7 +1737,7 @@
           const resp = await _origFetch(...args);
           try {
             const u = String(args[0] || "");
-            if (u.includes("quotes_all") || u.includes("live_quotes")) {
+            if (u.includes("quotes_all") || u.includes("live_quotes") || u.includes("live_price.json")) {
               resp.clone().json().then(d => {
                 if (d && d.risk_meta && d.risk_meta.splv_seesaw) {
                   state.splvSeesaw = d.risk_meta.splv_seesaw;

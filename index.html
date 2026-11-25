@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>【周期系统逻辑理论 V6.0 · 四层全周期无瑕终极版】</title>
+  <title>【周期系统逻辑理论 V6.6.5 · 四层全周期无瑕终极版】</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", monospace, sans-serif; background: #F1F5F9; color: #0F172A; margin: 0; }
     .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   </style>
 </head>
-<body class="bg-[#F1F5F9] text-slate-900">
+<body class="pb-14 bg-[#F1F5F9] text-slate-900">
   <div id="app" class="min-h-screen p-2.5 md:p-5 max-w-[1440px] mx-auto space-y-4"></div>
 
   <script>
@@ -430,11 +430,13 @@
       const bjtHM = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
       const estHM = `${String(eh).padStart(2,"0")}:${String(em).padStart(2,"0")}`;
 
-      const curYear = now.getFullYear();
-      const curMonth = now.getMonth() + 1;
-      const curDay = now.getDate();
+      // V6.6.5 修复：按美股24H交易日历（BJT 08:00 ~ 次日 08:00 = UTC 日历）切日，杜绝北京过零点提前跳日误判主升浪
+      const curYear = now.getUTCFullYear();
+      const curMonth = now.getUTCMonth() + 1;
+      const curDay = now.getUTCDate();
       const curQuarter = Math.floor((curMonth - 1) / 3) + 1;
       const realMmDd = `${String(curMonth).padStart(2,"0")}/${String(curDay).padStart(2,"0")}`;
+      const tradeDate = new Date(curYear, curMonth - 1, curDay, 12, 0, 0);
 
       let exactMin = 0;
       if (h >= 8) exactMin = (h - 8) * 60 + m + (s || 0) / 60;
@@ -464,7 +466,7 @@
       } else if (exactMin >= closeMin) {
         countdownText = "🌙 美股盘后交易时段 (05:00-08:00)";
       }
-      return { now, curYear, curMonth, curQuarter, realMmDd, bjtStr, estStr, bjtHM, estHM, nowIdx: bestIdx, nowFloatIdx, exactMin, countdownText };
+      return { now: tradeDate, curYear, curMonth, curQuarter, realMmDd, bjtStr, estStr, bjtHM, estHM, nowIdx: bestIdx, nowFloatIdx, exactMin, countdownText };
     }
 
     function getTheoByDay(theoCurve, targetDay) {
@@ -500,10 +502,7 @@
       const freezeThreshold = is3x ? -10.0 : -3.3;
       const extremeThreshold = is3x ? -35.0 : -11.5;
 
-      const isExtremeBarrierBreached = !cfg.isInverse && (spreadPct <= extremeThreshold);
-      const isShortFrozen = !cfg.isInverse && (spreadPct <= freezeThreshold);
-
-      // V6.6.3 核心动态周期日内相位判决引擎（统一以零磨损1x母标定向：SOXX管SOXL/SOXS，QQQ管TQQQ/SQQQ，彻底杜绝母子走势打架）
+      // V6.6.5 核心动态周期日内相位判决引擎（统一以零磨损1x母标定向与禁空同步 + 11/26坑前斜率防提前穿越）
       const pairLongSym = (state.ticker === "SOXL" || state.ticker === "SOXS")
         ? "SOXX"
         : ((state.ticker === "TQQQ" || state.ticker === "SQQQ") ? "QQQ" : state.ticker);
@@ -513,12 +512,22 @@
       const pTheoNow = (state.ticker === pairLongSym && state.customBaseTheo)
         ? state.customBaseTheo
         : getTheoByDay(pCfg.theoCurve, anchorDayNum);
-      const pTheoNext4 = getTheoByDay(pCfg.theoCurve, Math.min(dayOf("12/28"), anchorDayNum + 4));
+      const _slopeTargetDay = anchorDayNum < dayOf("11/26")
+        ? dayOf("11/26")
+        : Math.min(dayOf("12/28"), anchorDayNum + 4);
+      const pTheoNext4 = getTheoByDay(pCfg.theoCurve, _slopeTargetDay);
       const pSpreadPct = ((pCur / pTheoNow) - 1.0) * 100;
       const pSlopePct = ((pTheoNext4 / pTheoNow) - 1.0) * 100;
       const pIs3x = pCfg.betaDecay > 0;
       const pFreezeTh = pIs3x ? -10.0 : -3.3;
       const pOverheatTh = pIs3x ? 8.0 : 2.8;
+
+      const _pinTargetsMap = (state.splvSeesaw && state.splvSeesaw.pin_targets) ? state.splvSeesaw.pin_targets : null;
+      const _motherPinObj = (_pinTargetsMap && _pinTargetsMap[pairLongSym]) ? _pinTargetsMap[pairLongSym] : null;
+      const _inMotherPinZone = !cfg.isInverse && !!(_motherPinObj && _motherPinObj.t1_high && pCur <= _motherPinObj.t1_high);
+
+      const isExtremeBarrierBreached = !cfg.isInverse && (pSpreadPct <= -11.5);
+      const isShortFrozen = !cfg.isInverse && (pSpreadPct <= pFreezeTh);
 
       const _ssLvlTop = (state.splvSeesaw && state.splvSeesaw.ready) ? state.splvSeesaw.level : "";
       const _isSeesawReversalOn = (pairLongSym === "SOXX") && (_ssLvlTop === "rev_buy" || _ssLvlTop === "left_l4" || _ssLvlTop === "left_l2");
@@ -559,7 +568,7 @@
       }
 
       const isReversionPhase = !cfg.isInverse ? isShortFrozen : !isIntradayUp;
-      const phaseTitle = cfg.isInverse
+      let phaseTitle = cfg.isInverse
         ? (isIntradayUp
           ? "【阶段定性】：反向空头顺势推进段（正股负乖离已收敛且周期向下 · 逢回踩低吸做多）"
           : (longRegime === "rebound_bull"
@@ -568,7 +577,7 @@
         : (isReversionPhase
           ? "【阶段定性】：超跌报复性修复回归段（负乖离过大触发禁空保护 · 日内先看技术反抽填补空间）"
           : (longRegime === "cycle_bear" || longRegime === "overheat_bear"
-            ? "【阶段定性】：周期系统主跌派发段（负乖离已收敛 · 正式按高开诱多回落向黄金坑寻底）"
+            ? `【阶段定性】：周期系统主跌派发段（负乖离已收敛 · ${curP < cfg.regClose * 0.99 ? "低开弱势下探 · 逼近11/26黄金坑承接区，严禁地板追空" : "防范反抽受阻回落向黄金坑寻底"}）`
             : (longRegime === "seesaw_bull"
               ? "【阶段定性】：血筹反攻确认推进段（底层跷跷板高胜率企稳 · 先消化短线获利盘再顺势反攻）"
               : "【阶段定性】：周期系统主升推进段（黄金坑底确立 · 顺势回踩均线向上推进）")));
@@ -623,7 +632,7 @@
         ? `正乖离 (+${spreadPct.toFixed(1)}%)`
         : `负乖离已收敛 (${spreadPct.toFixed(1)}%)`;
 
-      // V6.6.3：联动底层 SPLV/SOXX 跷跷板高胜率反攻/血筹信号，防止母子ETF方向打架与地板追空
+      // V6.6.5：联动底层 SPLV/SOXX 跷跷板高胜率反攻/血筹信号，防止母子ETF方向打架与地板追空
       const ssLvl = (state.splvSeesaw && state.splvSeesaw.ready) ? state.splvSeesaw.level : "";
       const isSemiLong = (state.ticker === "SOXX" || state.ticker === "SOXL");
       const isSeesawBullProtect = isSemiLong && (ssLvl === "rev_buy" || ssLvl === "left_l4" || ssLvl === "left_l2");
@@ -720,7 +729,50 @@
         };
       }
 
-      // V6.6.3 修复：第三层节点严格对齐真实周期模型日期 (11/26黄金坑 / 12/10波峰 / 12/28收官)，中继节点动态取未来最近拐点
+      // V6.6.5 三级最高风控联锁：1.清算熔断最高覆盖 -> 2.急杀接针区禁地板追空 -> 3.跷跷板红警压制全市场追多
+      const _v65Top = (window.__V65_RISK_STATE__ && window.__V65_RISK_STATE__[state.ticker]) || {};
+      const _ssRiskObj = (state.splvSeesaw && state.splvSeesaw.ready) ? state.splvSeesaw : null;
+      const _ssRiskLvl = _ssRiskObj ? _ssRiskObj.level : "";
+      const _isSeesawBearWarn = !cfg.isInverse && !!_ssRiskObj && ["trend_warn", "double_kill", "day_div", "watch_warn"].includes(_ssRiskLvl);
+      const _isHardSeesawRed = _ssRiskLvl === "trend_warn" || _ssRiskLvl === "double_kill";
+      const _shouldCapBull = _isSeesawBearWarn && (_isHardSeesawRed || pairLongSym === "SOXX" || curP < curVwap) && !isExtremeBarrierBreached;
+
+      if (!cfg.isInverse && _v65Top.liquidationActive) {
+        const _estFloor = (curP * (is3x ? 0.85 : 0.95)).toFixed(2);
+        gammaStatus = {
+          level: "liquidation_halt",
+          badge: `🚨 【清算熔断最高警报 (${_v65Top.redCount || 2}/5红灯)】暂停左侧接飞刀 · 等强平结束并站稳真实VWAP ($${curVwap.toFixed(2)})`,
+          bg: "bg-red-50 border-red-500 text-red-950",
+          btnCls: "bg-red-600",
+          btnText: "熔断暂停接刀",
+          desc: `顶部微结构雷达已激活极端清算熔断（防插针冗余至 $${_estFloor}），强制覆盖一切日内反抽/低吸信号；严禁盲目抄底接飞刀，须等强平结束且放量站回真实 VWAP ($${curVwap.toFixed(2)})！`
+        };
+        phaseTitle = "【阶段定性】：极端清算熔断期（强平踩踏未出清 · 暂停一切左侧接刀与反抽博弈，以保本为先）";
+      } else if (_inMotherPinZone && gammaStatus && gammaStatus.level === "breakdown") {
+        gammaStatus = {
+          level: "pin_zone_hold",
+          badge: `⚠️ 【急杀接针区·禁地板追空】母标 ${pairLongSym} 已入接针带 · 严禁追空，等企稳站稳真实VWAP ($${curVwap.toFixed(2)})`,
+          bg: "bg-amber-50 border-amber-400 text-amber-950",
+          btnCls: "bg-amber-600",
+          btnText: "接针区禁追空",
+          desc: `母标 ${pairLongSym} ($${pCur.toFixed(2)}) 已跌入一档急杀接针区（≤$${_motherPinObj.t1_high}）且逼近 11/26 黄金坑，此时严禁在地板追空；受避险压制暂轻仓观望，等放量站回真实 VWAP ($${curVwap.toFixed(2)}) 再转右侧！`
+        };
+        phaseTitle = "【阶段定性】：急杀接针防踏空/防踩踏观察段（已达接针带严禁地板追空 · 避险压制下等企稳信号）";
+      } else if (_shouldCapBull && gammaStatus && (isIntradayUp || /主升|做多|反攻|反抽/.test((gammaStatus.badge || "") + (gammaStatus.btnText || "")))) {
+        const _zTxt = `${_ssRiskObj.ratio_z20 >= 0 ? "+" : ""}${Number(_ssRiskObj.ratio_z20 || 0).toFixed(2)}σ`;
+        const _warnName = _ssRiskLvl === "double_kill" ? "双杀" : (_ssRiskLvl === "trend_warn" ? "强波段大跌" : "避险背离");
+        gammaStatus = {
+          level: "seesaw_warn_cap",
+          badge: `⚠️ 【避险压制·暂缓追多】跷跷板触发${_warnName}预警 (${_zTxt}) · 等放量站稳真实VWAP ($${curVwap.toFixed(2)}) 并退警`,
+          bg: "bg-amber-50 border-amber-400 text-amber-950",
+          btnCls: "bg-amber-600",
+          btnText: "避险轻仓观望",
+          desc: `实盘 SPLV/SOXX 跷跷板已触发${_warnName}预警（Ratio Z=${_zTxt}，真实 VWAP $${curVwap.toFixed(2)}）；切忌把盘中反抽误判为主升浪追多，须等放量站稳均线且预警解除后再转右侧！`
+        };
+        phaseTitle = "【阶段定性】：避险压制观察段（跷跷板预警拦截周期多头 · 严禁盲目追多，等放量站稳真实VWAP并退警）";
+      }
+
+      // V6.6.5 修复：第三层节点严格对齐真实周期模型日期 (11/26黄金坑 / 12/10波峰 / 12/28收官)，中继节点动态取未来最近拐点
       const _ancDay = dayOf(state.anchorDt);
       const dtNode1 = _ancDay < dayOf("11/20")
         ? "11/20"
@@ -837,7 +889,7 @@
             const avgDailyMove = sumRet / Math.max(1, tail.length - 1);
             effBetaDecay = avgDailyMove <= 6 ? 0.125 : Math.min(0.35, 0.125 + ((avgDailyMove - 6) / 14) * 0.225);
           }
-          // V6.6.3 修复：5日内仅计入合理的周度波动率磨损（上限6%），避免把月度磨损重复扣光导致SOXL假崩盘
+          // V6.6.5 修复：5日内仅计入合理的周度波动率磨损（上限6%），避免把月度磨损重复扣光导致SOXL假崩盘
           const fiveDayDecay = Math.min(0.06, effBetaDecay * 0.18) * (step / 5.0);
           modelCenter = modelCenter * (1.0 - fiveDayDecay);
         }
@@ -853,14 +905,14 @@
           const pulseRatio = Math.min(1.0, step * 0.24);
           microAdjustedP = curP + (activeTheoNow - curP) * pulseRatio;
         } else if (!cfg.isInverse && curP < curVwap && !isShortFrozen && step === 1 && !isPostGoldenPit) {
-          // V6.6.3 修复：分时VWAP压制仅温和作用于 T+1，绝不强行压跌 T+2~T+5 黄金坑后的反弹主升
+          // V6.6.5 修复：分时VWAP压制仅温和作用于 T+1，绝不强行压跌 T+2~T+5 黄金坑后的反弹主升
           const vwapDrag = -Math.min(curP * 0.012, Math.abs(curVwap - curP) * 0.35);
           microAdjustedP = modelCenter + vwapDrag;
         } else if (cfg.isInverse && curP >= curVwap && step === 1 && !isPostGoldenPit) {
           microAdjustedP = modelCenter * 1.006;
         }
 
-        // V6.6.3 修复：天花板与底线严格围绕主推锚展开，彻底消除“主推跌、天花板涨”的逆向喇叭口
+        // V6.6.5 修复：天花板与底线严格围绕主推锚展开，彻底消除“主推跌、天花板涨”的逆向喇叭口
         const dailyCeiling = microAdjustedP * (1 + bandHalfWidth * (1 + step * 0.05));
         const dailyFloor = microAdjustedP * (1 - bandHalfWidth * (1 + step * 0.05));
         const gammaUpper = dailyCeiling * (is3x ? 1.018 : 1.006);
@@ -1100,7 +1152,7 @@
         }
       ];
 
-      // V6.6.3 修复：中继点改用动态坐标 xOf(sysTrack.dt1)，且仅在未来且与今日/11-26间距>2天时绘制，杜绝落到红线左侧或重叠遮挡
+      // V6.6.5 修复：中继点改用动态坐标 xOf(sysTrack.dt1)，且仅在未来且与今日/11-26间距>2天时绘制，杜绝落到红线左侧或重叠遮挡
       const _dt1Day = dayOf(sysTrack.dt1);
       const _showDt1Badge = _dt1Day > cutDay && Math.abs(_dt1Day - cutDay) > 2 && Math.abs(_dt1Day - dayOf("11/26")) > 2;
 
@@ -1507,7 +1559,7 @@
       const sMidUp = parseFloat(((sDip + vwap) * 0.5).toFixed(2));
       const sMidDn = parseFloat(((sPeak + vwap) * 0.5).toFixed(2));
 
-      // V6.6.3 修复：08:00 严格锚定昨收基准，隔离 16:00 后盘前极值防“时空倒灌”改写亚盘，并记录真实实盘走过轨迹
+      // V6.6.5 修复：08:00 严格锚定昨收基准，隔离 16:00 后盘前极值防“时空倒灌”改写亚盘，并记录真实实盘走过轨迹
       const _trailDay = (typeof timeInfo !== "undefined" && timeInfo && timeInfo.realMmDd)
         ? timeInfo.realMmDd
         : new Date().toISOString().slice(0, 10);
@@ -1861,7 +1913,7 @@
       const elCount = document.getElementById("countdownBadge");
       if (elCount) elCount.innerHTML = `⏱️ ${timeInfo.countdownText}`;
       const elTitle = document.getElementById("headerTitle");
-      if (elTitle) elTitle.innerHTML = `【周期系统逻辑理论 V6.0 · 四层全周期终极版】${state.ticker} - ${cfg.name}`;
+      if (elTitle) elTitle.innerHTML = `【周期系统逻辑理论 V6.6.5 · 四层全周期终极版】${state.ticker} - ${cfg.name}`;
 
       const elTickers = document.getElementById("tickerButtons");
       if (elTickers) {
@@ -2107,6 +2159,9 @@
         const _bSeesawBull = (gammaStatus.level === "seesaw_bull" || gammaStatus.level === "seesaw_pullback");
         const _bInvBlocked = cfg.isInverse && gammaStatus.level === "inverse_blocked";
         const _bInvMainBear = cfg.isInverse && gammaStatus.level === "inverse_bear";
+        const _bLiqHalt = !cfg.isInverse && gammaStatus.level === "liquidation_halt";
+        const _bPinZoneHold = !cfg.isInverse && gammaStatus.level === "pin_zone_hold";
+        const _bSeesawWarnCap = !cfg.isInverse && gammaStatus.level === "seesaw_warn_cap";
         const _bCycleBull = !cfg.isInverse && !isShortFrozen && !_bSeesawBull && (gammaStatus.btnText === "顺势回踩做多" || String(phaseTitle || "").includes("主升推进"));
 
         let _bCardCls = "bg-emerald-50 border-emerald-300 text-emerald-900";
@@ -2115,7 +2170,25 @@
         let _bBadgeCls = "bg-emerald-600";
         let _bBadgeTxt = "🔓 允许对冲";
 
-        if (_bInvBlocked) {
+        if (_bLiqHalt) {
+          _bCardCls = "bg-red-50 border-red-500 text-red-950";
+          _bTitle = "🚨 【清算熔断最高警报】暂停左侧接飞刀与反抽博弈";
+          _bDesc = `顶部微结构雷达已触发极端清算熔断，强平抛压未出清前严禁盲目抄底或抢反抽；须等强平结束并放量站回真实 VWAP ($${Number((m && m.curVwap) || curP || 0).toFixed(2)})！`;
+          _bBadgeCls = "bg-red-600";
+          _bBadgeTxt = "🚨 熔断禁接刀";
+        } else if (_bPinZoneHold) {
+          _bCardCls = "bg-amber-50 border-amber-400 text-amber-950";
+          _bTitle = "⚠️ 【已入急杀接针区】禁止地板追空 · 避险压制轻仓观望";
+          _bDesc = `母标已进入一档急杀接针带且临近 11/26 黄金坑，此时严禁顺势追空；受跷跷板避险压制暂轻仓观察，等站回真实 VWAP ($${Number((m && m.curVwap) || curP || 0).toFixed(2)})！`;
+          _bBadgeCls = "bg-amber-600";
+          _bBadgeTxt = "⚠️ 禁追空观望";
+        } else if (_bSeesawWarnCap) {
+          _bCardCls = "bg-amber-50 border-amber-400 text-amber-950";
+          _bTitle = "⚠️ 【跷跷板避险拦截】大跌预警生效中 · 暂停主升追多";
+          _bDesc = `底层 SPLV/SOXX 跷跷板已亮起避险预警，当前受避险资金压制；切忌逆风追多，须等放量站稳真实 VWAP ($${Number((m && m.curVwap) || curP || 0).toFixed(2)}) 且预警解除后再右侧介入！`;
+          _bBadgeCls = "bg-amber-600";
+          _bBadgeTxt = "⚠️ 避险轻仓观望";
+        } else if (_bInvBlocked) {
           _bCardCls = "bg-amber-50 border-amber-300 text-amber-900";
           _bTitle = "⚠️ 【反向对冲风控拦截】底层跷跷板已确认企稳反攻 · 暂停接回";
           _bDesc = "半导体母标已触发 15 年高胜率血筹/企稳反攻确认，严禁追高或回踩接回反向标的，仅作趁反抽离场！";
@@ -2398,7 +2471,7 @@
             <div class="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 text-white">
               <div class="text-center space-y-2">
                 <div class="text-3xl">🛡️</div>
-                <h1 class="text-xl font-bold">【周期系统逻辑理论 V6.0】</h1>
+                <h1 class="text-xl font-bold">【周期系统逻辑理论 V6.6.5】</h1>
                 <p class="text-xs text-slate-400 font-mono">请输入访问口令解锁</p>
               </div>
               <form id="loginForm" class="space-y-4">
@@ -2539,7 +2612,7 @@
     window.copyReport = () => {
       const timeInfo = getRealTimeSlotInfo();
       const m = computeAll(timeInfo);
-      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V6.0 实盘战报】**\n● 数据源: ${state.activeChannel==='opend'?'本地Moomoo OpenD':'云端API'} | 现价 $${m.curP.toFixed(2)} | VWAP $${m.curVwap.toFixed(2)} | 乖离率 ${m.spreadPct.toFixed(1)}%`;
+      const text = `📊 **【${state.ticker} 周期系统逻辑理论 V6.6.5 实盘战报】**\n● 数据源: ${state.activeChannel==='opend'?'本地Moomoo OpenD':'云端API'} | 现价 $${m.curP.toFixed(2)} | VWAP $${m.curVwap.toFixed(2)} | 乖离率 ${m.spreadPct.toFixed(1)}%`;
       navigator.clipboard.writeText(text);
       state.copied = true; updateDynamicSections();
       setTimeout(() => { state.copied = false; updateDynamicSections(); }, 2000);
@@ -2844,10 +2917,14 @@
     const aumYi = q ? (q.aum_usd / 1e8).toFixed(1) : "--";
     const amp5d = q ? q.amp_5d_pct : (is3x ? 18.5 : 4.2);
     const dynDecay = q ? q.dyn_beta_decay : (is3x ? 0.30 : 0.0);
-    const low52 = q ? q.low_52w : 0;
+    const rawLow52 = q ? q.low_52w : 0;
+    const low52 = (sym === "SOXX" && (!rawLow52 || rawLow52 > 110)) ? 94.65 : rawLow52;
 
-    const flagAum = !isInv && (aumPct >= 80);
-    const flagAumExtreme = !isInv && (aumPct >= 100);
+    // V6.6.5 修复：按 1x/3x 独立标定爆量换手阈值（3x>=60% / SOXX>=12% / QQQ&SPY>=8%）
+    const aumHighTh = is3x ? 60 : (sym === "SOXX" ? 12 : 8);
+    const aumExtTh  = is3x ? 90 : (sym === "SOXX" ? 20 : 14);
+    const flagAum = !isInv && (aumPct >= aumHighTh);
+    const flagAumExtreme = !isInv && (aumPct >= aumExtTh);
     const flagInvFrenzy = isInv && (aumPct >= 250);
     const flagSpy = spyChg <= -2.0;
     const flagPutBreach = (!isInv && putWall > 0 && curP > 0 && curP < putWall && (zeroGamma === 0 || curP < zeroGamma));
@@ -2877,7 +2954,7 @@
     let triggerCls = "bg-amber-50 border-amber-300 text-amber-900";
 
     if (!q) {
-      triggerText = "⏳ 正在连接本地 OpenD V6.6.3 风控引擎 (127.0.0.1:8888)...";
+      triggerText = "⏳ 正在连接本地 OpenD V6.6.5 风控引擎 (127.0.0.1:8888)...";
       triggerCls = "bg-slate-50 border-slate-300 text-slate-700";
     } else if (isWeekend) {
       triggerText = `🌙 周末休市复盘态（锚定周五收盘/盘后 $${curP} | 周五SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%）：已锁定周五有效数据，周一 09:00 亚盘开盘自动恢复实时熔断监测！`;
@@ -2890,9 +2967,20 @@
       const estFloor = curP > 0 ? `$${(curP * (is3x ? 0.85 : 0.95)).toFixed(2)}` : "--";
       triggerText = `🛑 极端清算熔断激活 (${redCount}/5 红灯)：已追加 ${cushion} 冗余安全垫 (防插针至 ${estFloor})，暂停左侧接飞刀，等强平结束并站回 VWAP ($${curVwap})！`;
       triggerCls = "bg-red-100 border-red-500 text-red-900";
-    } else if (aboveVwap && offLowPct >= 1.5) {
-      triggerText = `✅ 盘口右侧扳机就绪：现价 $${curP} 已站稳 VWAP ($${curVwap}) 且脱离日内低点 +${offLowPct.toFixed(1)}%，清算风险解除，可按周期计划执行！`;
-      triggerCls = "bg-emerald-50 border-emerald-400 text-emerald-900";
+    } else if (aboveVwap) {
+      const minOffLow = is3x ? 1.5 : (sym === "SOXX" ? 1.0 : 0.45);
+      const _ssR = (typeof state !== "undefined" && state.splvSeesaw && state.splvSeesaw.ready) ? state.splvSeesaw : null;
+      const _ssRedOn = !!(_ssR && ["trend_warn", "double_kill"].includes(_ssR.level));
+      if (offLowPct >= minOffLow && !_ssRedOn) {
+        triggerText = `✅ 盘口右侧扳机就绪：现价 $${curP} 已站稳 VWAP ($${curVwap}) 且脱离日内低点 +${offLowPct.toFixed(1)}%，清算风险解除，可按周期计划执行！`;
+        triggerCls = "bg-emerald-50 border-emerald-400 text-emerald-900";
+      } else if (offLowPct >= minOffLow && _ssRedOn) {
+        triggerText = `⚠️ 已站上真实 VWAP ($${curVwap} · 脱离日低 +${offLowPct.toFixed(1)}%)，但跷跷板大跌预警仍在，暂轻仓防守不盲目追高！`;
+        triggerCls = "bg-amber-50 border-amber-400 text-amber-950";
+      } else {
+        triggerText = `🟡 已初步站上真实 VWAP ($${curVwap})，继续观察放量脱离日低（当前 +${offLowPct.toFixed(2)}% / 门槛 +${minOffLow}%）`;
+        triggerCls = "bg-amber-50 border-amber-300 text-amber-900";
+      }
     } else if (flagMarginWin) {
       triggerText = `⚠️ 午盘强平窗警报 (ET ${rmeta.et_time})：美东 11:50-13:00 为 Margin Call 集中清算时段，谨防二次砸穿日内低点 $${dayLow}！`;
       triggerCls = "bg-orange-50 border-orange-400 text-orange-900";
@@ -2903,7 +2991,7 @@
 
     el.querySelector("#v65-header-left").innerHTML = `
       <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${liquidationActive ? 'bg-red-600 text-white animate-pulse' : 'bg-indigo-600 text-white'}">
-        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.6.3 微结构风控雷达'}
+        ${liquidationActive ? '🚨 清算熔断激活' : '🛡️ V6.6.5 微结构风控雷达'}
       </span>
       <span class="font-bold text-slate-800 text-sm">${sym} ${isWeekend ? '周末复盘' : '实时监测'} ($${curP || '--'})</span>
       <span class="text-xs text-slate-500 font-mono">美东 ${rmeta.et_time || '--:--'} | 标普SPY ${spyChg >= 0 ? '+' : ''}${spyChg}%</span>
@@ -2911,9 +2999,7 @@
     el.querySelector("#v65-toggle-gex").textContent = `⚙️ 期权GEX校准 (${gexBtnTag})`;
 
     const turnTitle = isInv ? "反向短线换手 / AUM" : (isWeekend ? "上交易日成交 / AUM" : "成交额 / AUM 换手");
-    const turnTag = isInv
-      ? (flagInvFrenzy ? "🔥空头情绪过热" : "反向常规换手")
-      : (flagAumExtreme ? "🔥极值出清" : (flagAum ? "⚠️清算预警" : "正常"));
+    const turnTag = isInv ? (flagInvFrenzy ? "🚨空头狂热" : "正常") : (flagAumExtreme ? "🚨极度爆量踩踏" : (flagAum ? "🔴爆量换手预警" : "正常"));
     const turnBorder = isInv
       ? (flagInvFrenzy ? "border-purple-400 bg-purple-50/60" : "border-slate-200 bg-slate-50/60")
       : (flagAumExtreme ? "border-red-500 bg-red-50" : (flagAum ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-slate-50/60"));
@@ -2923,7 +3009,7 @@
       <div class="grid grid-cols-2 md:grid-cols-5 gap-2.5 text-xs">
         <div class="rounded-xl border p-2.5 ${is3x && dynDecay >= 0.25 ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-slate-50/60'}">
           <div class="text-slate-500 mb-0.5">动态波动率磨损</div>
-          <div class="font-mono font-bold text-sm text-slate-900">${(dynDecay * 100).toFixed(1)}% <span class="text-[10px] font-normal text-slate-500">(原12.5%)</span></div>
+          <div class="font-mono font-bold text-sm text-slate-900">${(dynDecay * 100).toFixed(1)}% <span class="text-[10px] font-normal text-slate-500">${is3x ? "(原12.5%)" : "(1x无磨损)"}</span></div>
           <div class="text-[11px] text-slate-600 mt-0.5">5日均振幅: ${amp5d}%</div>
         </div>
 
@@ -2936,7 +3022,7 @@
         <div class="rounded-xl border p-2.5 ${flagPutBreach ? 'border-red-500 bg-red-50' : ((useManual || apiGex.source==='opend_auto') ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-200 bg-slate-50/60')}">
           <div class="text-slate-500 mb-0.5">期权 GEX 看跌墙</div>
           <div class="font-mono font-bold text-sm ${flagPutBreach ? 'text-red-600' : 'text-slate-900'}">${putWall > 0 ? '$' + putWall : '待校准'} ${zeroGamma > 0 ? '<span class="text-[11px] font-normal text-slate-600">零G:$'+zeroGamma+'</span>' : ''}</div>
-          <div class="text-[10px] text-slate-500 mt-0.5 truncate" title="${gexDiag}">${flagPutBreach ? '🚨已击穿助跌' : (secPut > 0 ? '次柱:$'+secPut+' · ' : '') + gexDiag}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5 truncate" title="${gexDiag}">${flagPutBreach ? '🚨已击穿助跌' : (secPut > 0 ? '次柱:$'+secPut+' · ' : '') + (/无权限|失败|拉取期权链/.test(gexDiag || '') ? '点击右上角手动校准' : gexDiag)}</div>
         </div>
 
         <div class="rounded-xl border p-2.5 ${flagSpy ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-slate-50/60'}">
